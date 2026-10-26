@@ -1,0 +1,113 @@
+'use client';
+import { useRef } from 'react';
+import type { GameSnapshot } from '@/lib/types';
+import { CLASS_ACCENT } from '@/lib/themes';
+import { colorSlot } from '@/lib/themes';
+
+interface Props {
+  label: string;
+  tier: 'normal' | 'hard' | 'boss';
+  classCount: number;
+  snap: GameSnapshot | null;
+  attempt: number;
+  firstLevel: boolean;
+  sound: boolean;
+  sensitivity: number;
+  onSensitivity: () => void;
+  canTiltPhone: boolean;
+  phoneTilt: boolean;
+  onPause: () => void;
+  onRestart: () => void;
+  onCamera: () => void;
+  onOrbit: (dAz: number, dEl: number) => void;
+  onFlat: () => void;
+  onSound: () => void;
+  onPhoneTilt: () => void;
+}
+
+/** A strip you drag sideways to turn the view (and up or down to change the height of the camera). */
+function RotatePad({ onOrbit }: { onOrbit: (dAz: number, dEl: number) => void }) {
+  const last = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <div
+      className="rotate-pad"
+      role="slider"
+      aria-label="Rotate view. Drag sideways."
+      aria-valuenow={0}
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); last.current = { x: e.clientX, y: e.clientY }; }}
+      onPointerMove={(e) => {
+        const l = last.current;
+        if (!l) return;
+        onOrbit(-(e.clientX - l.x) * 0.014, (e.clientY - l.y) * 0.008);
+        last.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={() => { last.current = null; }}
+      onPointerCancel={() => { last.current = null; }}
+    >
+      <span aria-hidden>◀</span> drag here to rotate the view <span aria-hidden>▶</span>
+    </div>
+  );
+}
+
+export default function GameHUD({ label, tier, classCount, snap, attempt, firstLevel, sound, sensitivity, onSensitivity, canTiltPhone, phoneTilt, onPause, onRestart, onCamera, onOrbit, onFlat, onSound, onPhoneTilt }: Props) {
+  const pct = snap ? Math.min(100, (snap.collected / snap.required) * 100) : 0;
+  return (
+    <>
+      <header className="hud-top">
+        <button className="btn icon" onClick={onPause} aria-label="Pause">❚❚</button>
+        <div className="hud-mid">
+          <div className="hud-title">
+            <strong>{label}</strong>
+            {snap && <span>{snap.collected} / {snap.required} home</span>}
+          </div>
+          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={snap?.required ?? 0} aria-valuenow={snap?.collected ?? 0} aria-label="Balls brought home">
+            <i style={{ width: `${pct}%` }} />
+          </div>
+          {snap && (
+            <div className="classes" aria-label="Progress for each ball size">
+              {snap.classes.map((c, j) => {
+                const spare = Math.max(0, c.allowed - c.lost);
+                return (
+                  <span key={j} className={`cls${c.collected >= c.need ? ' done' : ''}`} style={{ ['--c' as string]: CLASS_ACCENT[colorSlot({ tier, classRadii: new Array(classCount) }, j)] }}>
+                    <i className="dot" style={{ width: 10 + j * 4, height: 10 + j * 4 }} aria-hidden />
+                    <b>{c.collected}/{c.need}</b>
+                    {Array.from({ length: c.allowed }, (_, p) => <u key={p} className={p < spare ? '' : 'gone'} aria-hidden />)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="chip" aria-label={`${snap?.onBoard ?? 0} balls on the board`}>
+          <i aria-hidden />
+          {snap?.onBoard ?? 0}
+          <small>left</small>
+        </div>
+      </header>
+      {tier !== 'normal' && (
+        <div className={`banner ${tier}`} key={attempt} role="status">
+          {tier === 'boss' ? 'BOSS LEVEL · a giant gold ball must reach the biggest hole' : 'HARD LEVEL · fewer spare balls, more obstacles'}
+        </div>
+      )}
+      <footer className="hud-bottom">
+        <p className="hint" key={attempt}>
+          <span className="hand" aria-hidden>👆</span> {firstLevel ? 'Drag the board to tilt it (it stays tilted) · double-tap to level it' : 'Drag board: tilt · strip below: rotate view · double-tap: level'}
+        </p>
+        <RotatePad onOrbit={onOrbit} />
+        <button className="btn icon" onClick={onCamera} aria-label="Reset view">⌖</button>
+        <button className="btn" onClick={onSensitivity} aria-label={`Tilt sensitivity ${sensitivity}x. Tap to change.`}>Sens {sensitivity}×</button>
+        <button className="btn" onClick={onFlat}>Level</button>
+        <button className="btn" onClick={onRestart}>Restart</button>
+        <button className="btn icon" onClick={onSound} aria-pressed={sound} aria-label={sound ? 'Mute sound' : 'Turn sound on'}>{sound ? '🔊' : '🔇'}</button>
+        {canTiltPhone && (
+          <button className="btn" aria-pressed={phoneTilt} onClick={onPhoneTilt}>
+            {phoneTilt ? 'Phone tilt: on' : 'Tilt phone'}
+          </button>
+        )}
+      </footer>
+      <div className="sr-only" aria-live="polite">
+        {snap ? `${snap.collected} of ${snap.required} balls home, ${snap.lost} lost` : ''}
+      </div>
+    </>
+  );
+}
