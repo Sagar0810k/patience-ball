@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { Level, Tray } from '@/lib/types';
 import { CLASS_ACCENT, colorSlot, type Theme } from '@/lib/themes';
 import { PLATE_T, buildPlateGeometry, trayWalls } from '@/lib/levels/geometry';
-import { hatchTexture, hazardTexture, ringTexture } from './materials';
+import { hatchTexture, hazardTexture, ringTexture, gridTexture } from './materials';
 
 interface Props {
   tray: Tray;
@@ -57,10 +57,10 @@ function TrayMesh({ tray, level, theme }: Props) {
     const rough = tray.surface === 'ice' ? 0.04 : tray.surface === 'sticky' ? 0.95 : 0.4;
     return {
       plate: [
-        new THREE.MeshStandardMaterial({ color: top, roughness: rough, metalness: tray.surface === 'ice' ? 0.35 : 0.15, emissive: tray.surface === 'bouncy' ? '#ff2fb8' : '#000000', emissiveIntensity: 0.18 }),
+        new THREE.MeshStandardMaterial({ color: top, map: gridTexture(), roughness: rough, metalness: tray.surface === 'ice' ? 0.35 : 0.15, emissive: tray.surface === 'bouncy' ? '#ff2fb8' : '#000000', emissiveIntensity: 0.18 }),
         new THREE.MeshStandardMaterial({ color: '#0a0d24', roughness: 0.6, metalness: 0.3 }),
       ] as THREE.Material[],
-      wall: new THREE.MeshStandardMaterial({ color: '#080a1a', roughness: 0.5, metalness: 0.35 }),
+      wall: new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.deep).lerp(new THREE.Color('#3b3f86'), 0.55), emissive: theme.deep, emissiveIntensity: 0.15, roughness: 0.35, metalness: 0.45 }),
       goal: new THREE.MeshStandardMaterial({ color: '#00d96b', emissive: '#00ff7b', emissiveIntensity: 1, toneMapped: false }),
       trap: new THREE.MeshStandardMaterial({ color: '#b3173f', emissive: '#ff2a5c', emissiveIntensity: 0.9 }),
       beam: new THREE.MeshBasicMaterial({ color: '#16ff86', transparent: true, opacity: 0.22, toneMapped: false, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),

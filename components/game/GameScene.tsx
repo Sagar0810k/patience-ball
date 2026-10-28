@@ -265,7 +265,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
           ))}
           <instancedMesh key={runId} ref={marbles} args={[undefined, undefined, level.balls.length]} frustumCulled={false} castShadow>
             <sphereGeometry args={[1, 28, 20]} />
-            <meshStandardMaterial color="#ffffff" metalness={0.9} roughness={0.2} envMapIntensity={1.6} />
+            <meshPhysicalMaterial color="#ffffff" metalness={0.55} roughness={0.18} clearcoat={1} clearcoatRoughness={0.08} envMapIntensity={1.8} />
           </instancedMesh>
         </group>
       </group>

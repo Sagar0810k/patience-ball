@@ -11,11 +11,18 @@ import type { GameController } from '@/components/game/GameScene';
 import MainMenu from '@/components/ui/MainMenu';
 import GameHUD from '@/components/ui/GameHUD';
 import LevelSelect from '@/components/ui/LevelSelect';
+import TipCard from '@/components/ui/TipCard';
+import { markTipsSeen, newTips, type Tip } from '@/lib/tips';
+import Tutorial from '@/components/ui/Tutorial';
+import GameLoading from '@/components/ui/GameLoading';
 import SettingsPanel from '@/components/ui/SettingsPanel';
 import { CompletedOverlay, FailedOverlay, PauseOverlay, starsFor } from '@/components/ui/Overlays';
 
 // Three.js + WASM physics only load on the client, after the menu is already showing.
-const GameCanvas = dynamic(() => import('@/components/game/GameCanvas'), { ssr: false });
+const loadGame = () => import('@/components/game/GameCanvas');
+const GameCanvas = dynamic(loadGame, { ssr: false });
+const TUT_KEY = 'pb_tutorial_seen';
+const tutSeen = () => { try { return localStorage.getItem(TUT_KEY) === '1'; } catch { return true; } };
 
 type Screen = 'menu' | 'game' | 'settings' | 'levels';
 
@@ -29,6 +36,8 @@ export default function Page() {
   const [random, setRandom] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [tutorial, setTutorial] = useState(false);
+  const [tips, setTips] = useState<Tip[]>([]);
   const [snap, setSnap] = useState<GameSnapshot | null>(null);
   const controller = useRef<GameController | null>(null);
   const finished = useRef(false);
@@ -54,10 +63,25 @@ export default function Page() {
     }
   }, []);
 
-  const start = useCallback((n: number, seed?: number, isRandom = false) => {
+  // The 3D engine and physics are ~2.6 MB: fetch and compile them in the background while the menu is showing.
+  useEffect(() => {
+    if (!loaded) return;
+    // Skip the background download on data-saver or slow connections; the game then loads when Play is pressed.
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (conn?.saveData || /^(slow-2g|2g|3g)$/.test(conn?.effectiveType ?? '')) return;
+    const warm = () => { void loadGame(); void import('@/lib/physics/physicsWorld').then((m) => m.loadRapier()); };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(warm); else setTimeout(warm, 1200);
+  }, [loaded]);
+
+  const finishTutorial = useCallback(() => { try { localStorage.setItem(TUT_KEY, '1'); } catch {} setTutorial(false); }, []);
+
+  const start = useCallback((n: number, seed?: number, isRandom = false, withTutorial = false) => {
+    if (withTutorial || (n === 1 && !isRandom && !tutSeen() && saveRef.current.stats.levelsCompleted === 0)) setTutorial(true);
     const lv = generateLevel(n, seed);
     finished.current = false;
     setLevel(lv);
+    setTips(newTips(lv));
     setRandom(isRandom);
     setSnap(null);
     setPaused(false);
@@ -229,6 +253,7 @@ export default function Page() {
           ready={loaded}
           level={Math.min(save.currentLevel, save.highestUnlocked)}
           completed={save.stats.levelsCompleted}
+          onTutorial={() => { sound.click(); start(1, undefined, false, true); }}
           onPlay={() => { sound.click(); start(Math.min(save.currentLevel, save.highestUnlocked)); }}
           onRandom={() => { sound.click(); playRandom(); }}
           onLevels={() => setScreen('levels')}
@@ -241,12 +266,15 @@ export default function Page() {
             <GameCanvas
               level={level}
               attempt={attempt}
-              paused={paused}
+              paused={paused || tutorial || tips.length > 0}
               settings={save.settings}
               controllerRef={controller}
               onSnapshot={onSnapshot}
             />
           </div>
+          {!snap && <GameLoading />}
+          {tutorial && snap && <Tutorial onDone={finishTutorial} />}
+          {!tutorial && snap && tips.length > 0 && <TipCard tips={tips} onDone={() => { markTipsSeen(tips.map((t) => t.key)); setTips([]); }} />}
           <GameHUD
             label={random ? `Random · ${level.trays.length} trays` : `Level ${level.levelNumber}${level.tier === 'boss' ? ' · BOSS' : level.tier === 'hard' ? ' · HARD' : ''}`}
             tier={level.tier}

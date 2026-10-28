@@ -200,3 +200,62 @@ button { font: inherit; color: inherit; }
 .legend li { grid-template-columns: 14px 1fr; font-size: 0.82rem; }
 .legend i { width: 14px; height: 14px; border-radius: 4px; display: block; }
 @media (prefers-reduced-motion: reduce) { .mini-board, .mb { animation: none; } }
+
+/* ---------- loading + tutorial ---------- */
+.loading { position: absolute; inset: 0; z-index: 30; display: grid; place-content: center; justify-items: center; gap: 14px; background: radial-gradient(circle at 50% 30%, #5a42a8, #1d1148); color: var(--muted); }
+.loading p { margin: 0; font-weight: 700; }
+.spinner { display: flex; gap: 8px; }
+.spinner i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #cfd6ff, #3b3f86 60%, #11123a); animation: bounce 0.9s ease-in-out infinite; }
+.spinner i:nth-child(2) { animation-delay: 0.15s; } .spinner i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+.tut { position: absolute; inset: 0; z-index: 40; display: grid; place-items: end center; padding: 16px 16px calc(24px + var(--safe-b)); background: rgba(10, 4, 30, 0.55); backdrop-filter: blur(3px); }
+.tut-card { width: min(380px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 18px 20px; text-align: center; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
+.tut-card h2 { font-size: 1.35rem; } .tut-card p { margin: 0; color: #e4dcff; font-size: 0.95rem; line-height: 1.4; }
+.tut-demo { position: relative; height: 90px; border-radius: 16px; background: linear-gradient(135deg, #8fe9f2, #4fb7d6); overflow: hidden; }
+.tut-ico { position: absolute; font-size: 2rem; left: 50%; top: 50%; translate: -50% -50%; animation: drag 2.2s ease-in-out infinite; z-index: 2; }
+.td-ball { position: absolute; width: 20px; height: 20px; border-radius: 50%; left: 14%; top: 24%; background: radial-gradient(circle at 32% 28%, #cfd6ff, #3b3f86 60%, #11123a); animation: tball 2.2s ease-in infinite; }
+.td-hole { position: absolute; width: 34px; height: 34px; border-radius: 50%; right: 12%; bottom: 14%; background: #0b0a26; box-shadow: 0 0 0 4px #5dffb0, 0 0 18px #5dffb0; }
+.d-trap .td-hole { box-shadow: 0 0 0 4px #ff6b87; } .d-orbit .td-hole, .d-obst .td-hole { display: none; }
+.d-orbit .tut-ico { animation: spin 3s linear infinite; } .d-obst .td-ball { animation-duration: 1.4s; }
+@keyframes drag { 0%, 100% { transform: translate(-24px, -10px); } 50% { transform: translate(26px, 14px); } }
+@keyframes tball { 0% { transform: translate(0, 0); } 100% { transform: translate(170px, 50px); opacity: 0.2; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tut-dots { display: flex; gap: 6px; justify-content: center; } .tut-dots b { width: 8px; height: 8px; border-radius: 50%; background: var(--line); } .tut-dots b.on { background: var(--accent); width: 20px; border-radius: 4px; }
+.tut-actions { display: flex; gap: 10px; justify-content: space-between; } .tut-actions .btn.primary { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .tut-ico, .td-ball, .spinner i { animation: none; } }
+
+/* ---------- finishing pass ---------- */
+html, body { background: radial-gradient(120% 60% at 50% 0%, #3a2780 0%, #1d1148 55%, #120a2e 100%) fixed; }
+.panel > * { animation: rise 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.panel > *:nth-child(2) { animation-delay: 0.04s; } .panel > *:nth-child(3) { animation-delay: 0.08s; } .panel > *:nth-child(4) { animation-delay: 0.12s; } .panel > *:nth-child(n+5) { animation-delay: 0.16s; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.panel-head { position: sticky; top: 0; z-index: 2; padding: 6px 0 10px; background: linear-gradient(180deg, #2a1a66 60%, transparent); margin: 0 -4px; }
+.panel-head h2 { flex: 1; letter-spacing: -0.01em; }
+.row { border-radius: 14px; padding: 0 12px; margin-bottom: 2px; background: rgba(255, 255, 255, 0.04); border: 1px solid transparent; transition: background 0.2s ease; }
+.row:hover { background: rgba(255, 255, 255, 0.08); }
+.row input[type='checkbox'] { appearance: none; -webkit-appearance: none; width: 48px; height: 28px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); position: relative; cursor: pointer; transition: background 0.2s ease; flex: none; }
+.row input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35); transition: transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.row input[type='checkbox']:checked { background: linear-gradient(180deg, #6ff5f7, #2bd0e6); }
+.row input[type='checkbox']:checked::after { transform: translateX(20px); }
+.row select { appearance: none; -webkit-appearance: none; font: inherit; font-weight: 700; color: var(--ink); background: rgba(255, 255, 255, 0.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23bcaee8' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 34px 10px 14px; min-height: 44px; cursor: pointer; }
+.row select option { color: #111; }
+.stats { background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)); }
+.level-cell { transition: transform 0.15s ease, box-shadow 0.2s ease; animation: pop 0.35s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+.level-cell:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35); }
+.level-cell:active:not(:disabled) { transform: scale(0.95); }
+.level-cell.next { box-shadow: 0 0 0 0 rgba(53, 230, 233, 0.6); animation: pop 0.35s both, pulse 2s ease-out 0.4s infinite; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 12px rgba(53, 230, 233, 0); } 100% { box-shadow: 0 0 0 0 rgba(53, 230, 233, 0); } }
+.card { position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(48, 30, 110, 0.97), rgba(24, 13, 60, 0.97)); }
+.card::before { content: ''; position: absolute; left: 50%; top: -60px; translate: -50% 0; width: 220px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, rgba(111, 245, 247, 0.35), transparent); pointer-events: none; }
+.btn { position: relative; overflow: hidden; }
+.btn.primary::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%); translate: -120% 0; animation: shine 4s ease-in-out 1s infinite; pointer-events: none; }
+@keyframes shine { 0%, 60% { translate: -120% 0; } 100% { translate: 120% 0; } }
+.stars span.on { animation: pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both; } .stars span.on:nth-child(2) { animation-delay: 0.15s; } .stars span.on:nth-child(3) { animation-delay: 0.3s; }
+@media (prefers-reduced-motion: reduce) { .panel > *, .level-cell, .btn.primary::after, .stars span.on, .level-cell.next { animation: none; } }
+
+/* ---------- new-element tips ---------- */
+.tip { place-items: center; background: rgba(10, 4, 30, 0.45); }
+.tip .tut-card { position: relative; animation: pop 0.35s cubic-bezier(0.2, 1.2, 0.4, 1); }
+.tip-icon { font-size: 3rem; line-height: 1; animation: bounce 1.4s ease-in-out infinite; }
+.tip-badge { position: absolute; top: 14px; right: 16px; font-size: 0.7rem; font-weight: 900; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 999px; background: #ffd75e; color: #3a2a00; }
+@media (prefers-reduced-motion: reduce) { .tip-icon { animation: none; } }

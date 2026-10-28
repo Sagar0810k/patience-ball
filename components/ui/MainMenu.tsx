@@ -7,10 +7,11 @@ interface Props {
   onRandom: () => void;
   onLevels: () => void;
   onSettings: () => void;
+  onTutorial: () => void;
   ready: boolean;
 }
 
-export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, ready }: Props) {
+export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, ready }: Props) {
   return (
     <main className="menu">
       <span className="orb a" aria-hidden />
@@ -36,6 +37,7 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
           <button className="btn" onClick={onLevels} disabled={!ready}>Levels</button>
           <button className="btn" onClick={onRandom} disabled={!ready}>Random</button>
         </div>
+        <button className="btn ghost" onClick={onTutorial} disabled={!ready}>🎓 Tutorial</button>
         <button className="btn ghost" onClick={onSettings}>⚙ Settings &amp; progress</button>
       </div>
       <div className="chips" aria-label="Progress">

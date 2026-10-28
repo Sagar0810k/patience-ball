@@ -28,7 +28,7 @@ function build(levelNumber: number, seed: number): Level | null {
   const wallHeight = round(2.3 * maxR + 0.2);
 
   // Trays.
-  const count = rng.int(diff.traysMin, diff.traysMax);
+  const count = Math.max(rng.int(diff.traysMin, diff.traysMax), levelNumber >= 3 && k >= 2 ? 3 : 2); // at least 3 floors once there are 2 sizes, so their green holes can sit on different floors
   const base = 7 + 8 * maxR;
   // Boards come in different shapes: squares, wide halls and long corridors (about the same floor area).
   const dims = Array.from({ length: count }, () => {
@@ -132,7 +132,9 @@ function build(levelNumber: number, seed: number): Level | null {
   // (from level 4), so the pile has to be sorted as it goes down. Early levels keep all goals on the last tray.
   const lastIdx = trays.length - 1;
   const spread = levelNumber >= 2 && lastIdx >= 2;
-  const goalTray = classRadii.map((_, j) => (j === k - 1 || !spread ? lastIdx : rng.int(1, lastIdx)));
+  // Smaller sizes get their own middle floors (shuffled, one each while floors last); the biggest is always on the last floor.
+  const mids = Array.from({ length: Math.max(0, lastIdx - 1) }, (_, q) => q + 1).sort(() => rng.float() - 0.5);
+  const goalTray = classRadii.map((_, j) => (j === k - 1 || !spread ? lastIdx : mids[j % mids.length]));
   goalTray.sort((p, q) => p - q);
 
   // Holes. Traps swallow balls smaller than them; goal holes are the way out.

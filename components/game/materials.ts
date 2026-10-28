@@ -59,3 +59,26 @@ export function ringTexture() {
   rings.colorSpace = THREE.SRGBColorSpace;
   return rings;
 }
+
+let grid: THREE.CanvasTexture | null = null;
+/** Soft tiled floor: pale tiles with fine seams, so tilt and distance read clearly. Tinted by the tray colour. */
+export function gridTexture() {
+  if (grid) return grid;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, 128, 128);
+  g.fillStyle = 'rgba(0,0,0,0.07)';
+  g.fillRect(0, 0, 64, 64);
+  g.fillRect(64, 64, 64, 64);
+  g.strokeStyle = 'rgba(0,0,40,0.22)';
+  g.lineWidth = 3;
+  g.strokeRect(0, 0, 128, 128);
+  grid = new THREE.CanvasTexture(c);
+  grid.wrapS = grid.wrapT = THREE.RepeatWrapping;
+  grid.repeat.set(0.5, 0.5);
+  grid.anisotropy = 4;
+  grid.colorSpace = THREE.SRGBColorSpace;
+  return grid;
+}
