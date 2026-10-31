@@ -109,6 +109,12 @@ export interface GameSettings {
   sound: boolean;
   haptics: boolean;
   reducedMotion: boolean;
+  /** Tilt the board by tilting the phone (gyroscope). */
+  gyro: boolean;
+  /** Quiet background music while playing. */
+  music: boolean;
+  /** Ball finish, unlocked with stars (see lib/skins.ts). */
+  skin: string;
   /** How far a drag tilts the board: 0.6 gentle, 1 normal, 1.5 quick, 2 very quick. */
   sensitivity: number;
 }
@@ -144,7 +150,7 @@ export interface SaveData {
 
 export const SAVE_VERSION = 1;
 
-export const defaultSettings = (): GameSettings => ({ sound: true, haptics: true, reducedMotion: false, sensitivity: 1 });
+export const defaultSettings = (): GameSettings => ({ sound: true, haptics: true, reducedMotion: false, gyro: false, music: false, skin: 'classic', sensitivity: 1 });
 
 export const defaultStats = (): GameStats => ({
   levelsCompleted: 0,
@@ -177,6 +183,9 @@ export interface GameSnapshot {
   allowedLoss: number;
   /** Balls still rolling around on the trays. */
   onBoard: number;
+  /** Losses by cause: swallowed by a red hole, or fell off an open edge. */
+  lostTrap: number;
+  lostVoid: number;
   elapsed: number;
   /** Per ball size progress. */
   classes: Array<{ collected: number; lost: number; need: number; allowed: number }>;

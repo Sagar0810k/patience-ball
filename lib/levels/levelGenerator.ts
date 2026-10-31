@@ -1,4 +1,5 @@
 import type { Hole, Level, Obstacle, Side, Surface, Tray } from '../types';
+import { has } from '../intro';
 import { getDifficulty } from './difficultyManager';
 import { PLATE_T, WALL_T, footprint, obstacleExtent, rectsOverlap } from './geometry';
 import { Rng, levelSeed } from './seededRandom';
@@ -17,7 +18,7 @@ function build(levelNumber: number, seed: number): Level | null {
   const diff = getDifficulty(levelNumber);
 
   // Ball size classes: each is ~1.6x the one below, so a hole sized for one class blocks the next.
-  const kBase = diff.classesMax <= 2 ? 2 : rng.int(2, diff.classesMax);
+  const kBase = diff.classesMax <= 1 ? 1 : diff.classesMax <= 2 ? 2 : rng.int(2, diff.classesMax);
   const r0 = kBase === 2 ? rng.range(0.17, 0.24) : rng.range(0.15, 0.18);
   const classRadii = [round(r0)];
   for (let j = 1; j < kBase; j++) classRadii.push(round(classRadii[j - 1] * rng.range(1.65, 1.8)));
@@ -92,7 +93,7 @@ function build(levelNumber: number, seed: number): Level | null {
   else spawn.z0 = t0.cz + 0.4;
 
   // Fewer borders: from level 3 some sides have no wall at all, so a careless tilt can drop balls off the edge.
-  if (levelNumber >= 3) {
+  if (has('open', levelNumber)) { // no open edges early on
     const pOpen = Math.min(0.5, 0.1 + 0.02 * levelNumber);
     trays.forEach((t, i) => {
       const maxOpen = i === 0 ? 1 : diff.tier === 'boss' ? 3 : 2;
@@ -205,8 +206,9 @@ function build(levelNumber: number, seed: number): Level | null {
     const boss = diff.tier === 'boss';
     const kinds: Array<Obstacle['kind'] | 'barrier' | 'doorwall'> = ['peg'];
     if (boss) kinds.push('bar'); // lone bars are rare: too many borders make it easy
-    const unlock: Array<[Obstacle['kind'] | 'barrier' | 'doorwall', number]> = [['magnet', 4], ['doorwall', 6], ['magnet', 9], ['patch', 2], ['patch', 3], ['patch', 4], ['patch', 6], ['bumper', 3], ['block', 3], ['mud', 5], ['barrier', 5], ['boost', 6], ['filter', 6], ['spinner', 7], ['gate', 8], ['sweeper', 9], ['portal', 11]];
-    for (const [k2, from] of unlock) if (levelNumber >= from || boss) kinds.push(k2);
+    const ok = (key: string) => has(key, levelNumber);
+    if (ok('patch-ice') || ok('patch-rough') || ok('patch-bouncy')) kinds.push('patch');
+    for (const k2 of ['bumper', 'barrier', 'magnet', 'filter', 'doorwall', 'spinner', 'mud', 'gate', 'block', 'sweeper', 'portal', 'boost'] as const) if (ok(k2)) kinds.push(k2);
     const pad = maxR * 2.7;
     const taken = t.holes.map((h) => ({ x: h.x, z: h.z, ex: h.r, ez: h.r }));
     const want = diff.obstacles > 0 ? rng.int(Math.floor(diff.obstacles / 2), diff.obstacles) : 0;
@@ -308,7 +310,7 @@ function build(levelNumber: number, seed: number): Level | null {
       return true;
     };
     // Guards: a few obstacles close around each green hole, so the last stretch is never a free roll.
-    if (levelNumber >= 2) {
+    if (levelNumber >= 4) {
       const guardKinds = kinds.filter((x) => x !== 'barrier' && x !== 'doorwall' && x !== 'portal' && x !== 'block' && x !== 'bar');
       for (const g of t.holes.filter((h) => h.kind === 'goal')) {
         const n = rng.int(1, levelNumber >= 8 ? 3 : 2);
@@ -379,10 +381,7 @@ function build(levelNumber: number, seed: number): Level | null {
 /** Which floor material a tray gets; other materials unlock as levels go on. */
 function surfaceFor(levelNumber: number, boss: boolean, rng: Rng): Surface {
   const pool: Surface[] = [];
-  if (levelNumber >= 4) pool.push('ice');
-  if (levelNumber >= 6) pool.push('sticky');
-  if (levelNumber >= 8) pool.push('bouncy');
-  if (levelNumber >= 5) pool.push('conveyor');
+  for (const k of ['ice', 'sticky', 'bouncy', 'conveyor'] as const) if (has(k, levelNumber)) pool.push(k);
   if (!pool.length || rng.float() > (boss ? 0.65 : 0.4)) return 'normal';
   return pool[rng.int(0, pool.length - 1)];
 }
@@ -400,9 +399,7 @@ function makeObstacle(kind: Obstacle['kind'], rng: Rng, id: number, levelNumber:
     }
     case 'patch': {
       // Floor patches differ in size, shape and feel; rougher and bouncier ones unlock later.
-      const mats: Array<'ice' | 'rough' | 'bouncy'> = ['ice'];
-      if (levelNumber >= 4) mats.push('rough');
-      if (levelNumber >= 6) mats.push('bouncy');
+      const mats = (['ice', 'rough', 'bouncy'] as const).filter((m) => has(`patch-${m}`, levelNumber));
       const mat = mats[rng.int(0, mats.length - 1)];
       if (rng.float() < 0.5) { const r = round(rng.range(0.8, 2.0)); return { id, kind, shape: 'round', mat, x: 0, z: 0, hx: r, hz: r }; }
       return { id, kind, shape: 'rect', mat, x: 0, z: 0, hx: round(rng.range(0.8, 2.3)), hz: round(rng.range(0.6, 1.7)) };
