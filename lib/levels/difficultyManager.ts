@@ -27,13 +27,14 @@ export function getDifficulty(level: number): Difficulty {
   return {
     d,
     tier,
-    obstacles: clamp(Math.floor((L + 1) / 4) + bump, 0, 6),
+    // The level after a boss is a breather: half the obstacles and a single red hole.
+    obstacles: L > 1 && L % 10 === 1 ? Math.floor(clamp(Math.floor((L + 1) / 4) + bump, 0, 6) / 2) : clamp(Math.floor((L + 1) / 4) + bump, 0, 6),
     traysMin: clamp(2 + Math.floor((L - 1) / 8) + (tier === 'boss' ? 1 : 0), 2, 5),
     traysMax: clamp(3 + Math.floor((L - 1) / 4) + (tier === 'boss' ? 1 : 0), 3, 6),
-    classesMax: L < 5 ? 2 : 3,
-    balls: clamp(Math.round(12 + L * 0.8) + bump * 3, 12, 46),
+    classesMax: L < 4 ? 1 : L < 8 ? 2 : 3, // gentle opening: one ball size for levels 1-3
+    balls: L <= 3 ? 9 + L : clamp(Math.round(12 + L * 0.8) + bump * 3, 12, 46),
     trapsMin: 1 + Math.floor((L - 1) / 15),
-    trapsMax: clamp(1 + Math.floor((L - 1) / 5) + (tier === 'normal' ? 0 : 1), 1, 6),
-    lossFrac: lerp(0.38, 0.2, Math.min(1, d * 2)) * (tier === 'boss' ? 0.6 : tier === 'hard' ? 0.8 : 1),
+    trapsMax: L > 1 && L % 10 === 1 ? 1 : clamp(1 + Math.floor((L - 1) / 5) + (tier === 'normal' ? 0 : 1), 1, 6),
+    lossFrac: L <= 3 ? 0.5 : lerp(0.38, 0.2, Math.min(1, d * 2)) * (tier === 'boss' ? 0.6 : tier === 'hard' ? 0.8 : 1),
   };
 }

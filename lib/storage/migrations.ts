@@ -19,7 +19,7 @@ export function migrate(raw: unknown): SaveData | null {
   const highest = num(raw.highestUnlocked, 1, 1);
   return {
     version: SAVE_VERSION,
-    settings: { sound: bool(s.sound, d.settings.sound), haptics: bool(s.haptics, d.settings.haptics), reducedMotion: bool(s.reducedMotion, d.settings.reducedMotion), sensitivity: typeof s.sensitivity === 'number' && s.sensitivity >= 0.5 && s.sensitivity <= 2.5 ? s.sensitivity : 1 },
+    settings: { sound: bool(s.sound, d.settings.sound), haptics: bool(s.haptics, d.settings.haptics), reducedMotion: bool(s.reducedMotion, d.settings.reducedMotion), gyro: bool(s.gyro, d.settings.gyro), music: bool(s.music, d.settings.music), skin: typeof s.skin === 'string' ? s.skin : 'classic', sensitivity: typeof s.sensitivity === 'number' && s.sensitivity >= 0.5 && s.sensitivity <= 2.5 ? s.sensitivity : 1 },
     stats: {
       levelsCompleted: num(st.levelsCompleted, 0), ballsPlayed: num(st.ballsPlayed, 0), ballsCollected: num(st.ballsCollected, 0),
       attempts: num(st.attempts, 0), playSeconds: num(st.playSeconds, 0),

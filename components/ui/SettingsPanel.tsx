@@ -1,21 +1,27 @@
 'use client';
 import { useRef, useState } from 'react';
 import type { GameSettings, SaveData } from '@/lib/types';
+import { allTips, seenTips } from '@/lib/tips';
+import { SKINS } from '@/lib/skins';
 import { exportSave, parseImport } from '@/lib/storage/saveManager';
 
 interface Props {
   save: SaveData;
   onSettings: (s: GameSettings) => void;
+  canGyro: boolean;
+  onGyro: (on: boolean) => void;
   onReplace: (d: SaveData) => void;
   onReset: () => void;
   onBack: () => void;
 }
 
-export default function SettingsPanel({ save, onSettings, onReplace, onReset, onBack }: Props) {
+export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onReplace, onReset, onBack }: Props) {
   const [msg, setMsg] = useState('');
   const file = useRef<HTMLInputElement>(null);
   const s = save.settings;
   const st = save.stats;
+  const [seen] = useState(() => (typeof window === 'undefined' ? [] : seenTips()));
+  const totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
   const toggle = (k: keyof GameSettings) => onSettings({ ...s, [k]: !s[k] });
 
   const download = () => {
@@ -45,13 +51,19 @@ export default function SettingsPanel({ save, onSettings, onReplace, onReset, on
         <h2>Settings</h2>
       </div>
       {(
-        [['sound', 'Sound'], ['haptics', 'Vibration'], ['reducedMotion', 'Reduce motion']] as const
+        [['sound', 'Sound'], ['music', 'Music'], ['haptics', 'Vibration'], ['reducedMotion', 'Reduce motion']] as const
       ).map(([k, label]) => (
         <label key={k} className="row">
           <span>{label}</span>
           <input type="checkbox" checked={s[k]} onChange={() => toggle(k)} />
         </label>
       ))}
+      {canGyro && (
+        <label className="row">
+          <span>Gyroscope tilt<small className="sub">Tilt your phone to tilt the board</small></span>
+          <input type="checkbox" checked={s.gyro} onChange={(e) => onGyro(e.target.checked)} aria-label="Gyroscope tilt" />
+        </label>
+      )}
       <label className="row">
         <span>Tilt sensitivity</span>
         <select value={s.sensitivity} onChange={(e) => onSettings({ ...s, sensitivity: Number(e.target.value) })} aria-label="Tilt sensitivity">
@@ -61,6 +73,26 @@ export default function SettingsPanel({ save, onSettings, onReplace, onReset, on
           <option value={2}>Very quick</option>
         </select>
       </label>
+      <h3>Ball style</h3>
+      <div className="skins" role="radiogroup" aria-label="Ball style">
+        {SKINS.map((k) => {
+          const locked = totalStars < k.stars;
+          return (
+            <button key={k.id} role="radio" aria-checked={s.skin === k.id} disabled={locked} className={`skin${s.skin === k.id ? ' on' : ''}`} onClick={() => onSettings({ ...s, skin: k.id })}>
+              <i style={{ filter: `saturate(${0.6 + k.metalness * 0.8}) brightness(${1 + k.clearcoat * 0.1})`, opacity: locked ? 0.4 : 1 }} />
+              <b>{k.name}</b>
+              <small>{locked ? `🔒 ${k.stars}★` : 'Unlocked'}</small>
+            </button>
+          );
+        })}
+      </div>
+      <h3>Discovered</h3>
+      <div className="badges" aria-label="Elements you have discovered">
+        {allTips().map((t) => {
+          const got = seen.some((x) => x.key === t.key);
+          return <span key={t.key} className={`badge${got ? ' got' : ''}`} title={got ? t.title : 'Not discovered yet'}>{got ? t.icon : '?'}<small>{got ? t.title : '???'}</small></span>;
+        })}
+      </div>
       <h3>Progress</h3>
       <dl className="stats">
         <dt>Highest level</dt><dd>{save.highestUnlocked}</dd>

@@ -8,10 +8,12 @@ interface Props {
   onLevels: () => void;
   onSettings: () => void;
   onTutorial: () => void;
+  onDaily: () => void;
+  daily: { done: boolean; streak: number };
   ready: boolean;
 }
 
-export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, ready }: Props) {
+export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, onDaily, daily, ready }: Props) {
   return (
     <main className="menu">
       <span className="orb a" aria-hidden />
@@ -33,16 +35,22 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
         <button className="btn primary big" onClick={onPlay} disabled={!ready}>
           {completed > 0 ? `▶  Continue · Level ${level}` : '▶  Play'}
         </button>
+        <button className={`btn daily${daily.done ? ' done' : ''}`} onClick={onDaily} disabled={!ready}>
+          {daily.done ? '✓ Daily done' : '🔥 Daily challenge'}{daily.streak > 0 && <small> · {daily.streak}-day streak</small>}
+        </button>
         <div className="row2">
           <button className="btn" onClick={onLevels} disabled={!ready}>Levels</button>
           <button className="btn" onClick={onRandom} disabled={!ready}>Random</button>
         </div>
-        <button className="btn ghost" onClick={onTutorial} disabled={!ready}>🎓 Tutorial</button>
-        <button className="btn ghost" onClick={onSettings}>⚙ Settings &amp; progress</button>
+        <div className="row2">
+          <button className="btn ghost" onClick={onTutorial} disabled={!ready}>🎓 Tutorial</button>
+          <button className="btn ghost" onClick={onSettings}>⚙ Settings</button>
+        </div>
       </div>
       <div className="chips" aria-label="Progress">
+        <span className="chip">World {Math.ceil(level / 10)} · {((level - 1) % 10) + 1}/10 <i className="wbar"><b style={{ width: `${(((level - 1) % 10) / 10) * 100}%` }} /></i></span>
         <span className="chip">★ {completed} level{completed === 1 ? '' : 's'} cleared</span>
-        <span className="chip">Next · {level}</span>
+        
       </div>
       <details className="guide">
         <summary>How to play &amp; obstacle guide</summary>

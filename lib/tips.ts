@@ -1,3 +1,4 @@
+import { INTRO } from './intro';
 import type { Level } from './types';
 
 export interface Tip { key: string; icon: string; title: string; body: string }
@@ -41,3 +42,17 @@ export function newTips(level: Level): Tip[] {
   }
   return [...keys].filter((k) => TIPS[k] && !seen.has(k)).slice(0, 3).map((key) => ({ key, ...TIPS[key] })); // at most 3 per level; the rest wait for the next one
 }
+
+const ALIAS: Record<string, string> = { barrier: 'bar', doorwall: 'door' };
+export const tipFor = (key: string) => TIPS[ALIAS[key] ?? key];
+
+/** The next element that first appears after `level`, for the "coming up" teaser. */
+export function nextUnlock(level: number): { level: number; title: string; icon: string } | null {
+  const next = Object.entries(INTRO).filter(([, l]) => l > level).sort((a, b) => a[1] - b[1])[0];
+  const t = next && tipFor(next[0]);
+  return next && t ? { level: next[1], title: t.title, icon: t.icon } : null;
+}
+
+/** Every element the player has met so far, for the collection page. */
+export const seenTips = (): Tip[] => read().flatMap((k) => (TIPS[k] ? [{ key: k, ...TIPS[k] }] : []));
+export const allTips = (): Tip[] => Object.entries(TIPS).map(([key, t]) => ({ key, ...t }));

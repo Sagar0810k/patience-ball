@@ -4,7 +4,7 @@ import type { GameSnapshot, Level } from '../types';
 import { PLATE_T, spawnPositions } from '../levels/geometry';
 import { FIXED_DT, GRAVITY, PhysicsWorld } from './physicsWorld';
 
-export type SimEvent = 'collected' | 'lost' | 'won' | 'failed';
+export type SimEvent = 'collected' | 'lost' | 'won' | 'failed' | 'bump' | 'portal';
 export type BallStatus = 'active' | 'collected' | 'lost';
 
 const FALL_BAND = 0.6; // how far below a plate a ball must be (and no further) to count as having dropped through
@@ -144,6 +144,7 @@ export class Simulation {
             const m = b.mass() * Math.max(0, 6 - vn);
             b.applyImpulse({ x: (dx / d) * m, y: 0, z: (dz / d) * m }, true);
             this.kick[i] = this.elapsed;
+            this.onEvent('bump');
             return;
           }
           if (o.kind === 'magnet') {
@@ -159,6 +160,7 @@ export class Simulation {
             b.setTranslation({ x: o.tx, y: p.y, z: o.tz }, true);
             this.inPortal[i] = true;
             this.tele[i] = this.elapsed;
+            this.onEvent('portal');
             return;
           }
           if (o.kind === 'patch') {
@@ -253,6 +255,8 @@ export class Simulation {
       required: this.level.required,
       allowedLoss: this.level.allowedLoss,
       onBoard: this.level.balls.length - this.collected - this.lost,
+      lostTrap: this.lossLog.filter((l) => l.how === 'trap').length,
+      lostVoid: this.lossLog.filter((l) => l.how === 'void').length,
       elapsed: this.elapsed,
       classes: this.level.classNeed.map((need, j) => ({ collected: this.classCollected[j], lost: this.classLost[j], need, allowed: this.level.classAllowed[j] })),
     };

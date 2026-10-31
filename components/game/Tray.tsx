@@ -87,6 +87,8 @@ function TrayMesh({ tray, level, theme }: Props) {
   const matsRef = useRef(mats);
   useEffect(() => { matsRef.current = mats; }, [mats]);
   const hasGoal = tray.holes.some((h) => h.kind === 'goal');
+  const magnets = useRef<Array<THREE.Group | null>>([]);
+  const magnetList = useMemo(() => tray.obstacles.filter((q): q is Extract<typeof q, { kind: 'magnet' }> => q.kind === 'magnet'), [tray]);
   const hasBumper = tray.obstacles.some((o) => o.kind === 'bumper');
   // Goal holes and bumpers pulse so they stand out.
   useFrame(({ clock }) => {
@@ -95,6 +97,8 @@ function TrayMesh({ tray, level, theme }: Props) {
       matsRef.current.goal.emissiveIntensity = 0.9 + 0.4 * s;
       matsRef.current.beam.opacity = 0.3 + 0.1 * s;
     }
+    // Magnet rings breathe in (pull) or out (push) so their reach is visible.
+    magnets.current.forEach((g, i) => { if (g) { const ph = (clock.elapsedTime * 1.4 + i * 0.5) % 1; const sc = magnetList[i]?.push > 0 ? 1.06 - 0.12 * ph : 0.94 + 0.12 * ph; g.scale.set(sc, 1, sc); } });
     if (hasBumper) matsRef.current.bumper.emissiveIntensity = 0.7 + 0.45 * Math.sin(clock.elapsedTime * 5);
   });
   const beamH = Math.max(3, level.bounds.max[1] - tray.cy + 3);
@@ -194,7 +198,7 @@ function TrayMesh({ tray, level, theme }: Props) {
         if (o.kind === 'magnet') {
           const c = o.push > 0 ? '#9b5cff' : '#ff8a3d';
           return (
-            <group key={o.id} position={[o.x - tray.cx, PLATE_T / 2 + 0.03, o.z - tray.cz]}>
+            <group key={o.id} ref={(g) => { magnets.current[magnetList.indexOf(o)] = g; }} position={[o.x - tray.cx, PLATE_T / 2 + 0.03, o.z - tray.cz]}>
               {[1, 0.6, 0.25].map((f) => (
                 <mesh key={f} rotation={[-Math.PI / 2, 0, 0]}>
                   <ringGeometry args={[o.r * f - 0.07, o.r * f, 40]} />
@@ -223,6 +227,33 @@ function TrayMesh({ tray, level, theme }: Props) {
                 </mesh>
               ))}
             </group>
+          );
+        }
+        // Warning marks on the floor under the moving obstacles (GameScene draws the movers): their whole reach is shown.
+        if (o.kind === 'sweeper') {
+          const alongX = o.axis === 'x';
+          return (
+            <mesh key={o.id} position={[o.x - tray.cx, PLATE_T / 2 + 0.012, o.z - tray.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[alongX ? 2 * (o.hx + o.amp) : 2 * o.hx, alongX ? 2 * o.hz : 2 * (o.hz + o.amp)]} />
+              <meshBasicMaterial color="#c86bff" transparent opacity={0.16} depthWrite={false} toneMapped={false} />
+            </mesh>
+          );
+        }
+        if (o.kind === 'spinner') {
+          return (
+            <mesh key={o.id} position={[o.x - tray.cx, PLATE_T / 2 + 0.012, o.z - tray.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[o.len - 0.06, o.len, 40]} />
+              <meshBasicMaterial color="#31e0ff" transparent opacity={0.5} depthWrite={false} toneMapped={false} />
+            </mesh>
+          );
+        }
+        if (o.kind === 'door') {
+          // Footprint of the door's frame, so the sunken door still reads as a doorway.
+          return (
+            <mesh key={o.id} position={[o.x - tray.cx, PLATE_T / 2 + 0.012, o.z - tray.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[o.hx * 2 + 0.2, o.hz * 2 + 0.2]} />
+              <meshBasicMaterial color="#ffb020" transparent opacity={0.3} depthWrite={false} toneMapped={false} />
+            </mesh>
           );
         }
         return null; // sweepers, spinners and gates move, so GameScene draws them

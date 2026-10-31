@@ -1,5 +1,5 @@
 'use client';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GameSnapshot } from '@/lib/types';
 import { CLASS_ACCENT } from '@/lib/themes';
 import { colorSlot } from '@/lib/themes';
@@ -49,6 +49,25 @@ function RotatePad({ onOrbit }: { onOrbit: (dAz: number, dEl: number) => void })
   );
 }
 
+const COMBO = ['', '', 'Double!', 'Triple!', 'Quad!', 'Awesome!', 'Amazing!', 'Unstoppable!'];
+
+/** Floating combo text when balls drop in quick succession (fired by the scene as a window event). */
+function ComboPop() {
+  const [c, setC] = useState<{ n: number; id: number } | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setC({ n: (e as CustomEvent<number>).detail, id: performance.now() });
+    window.addEventListener('pb-combo', on);
+    return () => window.removeEventListener('pb-combo', on);
+  }, []);
+  useEffect(() => {
+    if (!c) return;
+    const t = setTimeout(() => setC(null), 1100);
+    return () => clearTimeout(t);
+  }, [c]);
+  if (!c) return null;
+  return <div key={c.id} className="combo" aria-hidden>{COMBO[Math.min(c.n, COMBO.length - 1)]} <small>×{c.n}</small></div>;
+}
+
 export default function GameHUD({ label, tier, classCount, snap, attempt, firstLevel, sound, sensitivity, onSensitivity, canTiltPhone, phoneTilt, onPause, onRestart, onCamera, onOrbit, onFlat, onSound, onPhoneTilt }: Props) {
   const pct = snap ? Math.min(100, (snap.collected / snap.required) * 100) : 0;
   return (
@@ -60,6 +79,7 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
             <strong>{label}</strong>
             {snap && <span>{snap.collected} / {snap.required} home</span>}
           </div>
+          {snap && <div className="goals" aria-label="Star goals">★★★ lose none · ★★ lose ≤ {Math.floor(snap.allowedLoss / 2)}</div>}
           <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={snap?.required ?? 0} aria-valuenow={snap?.collected ?? 0} aria-label="Balls brought home">
             <i style={{ width: `${pct}%` }} />
           </div>
@@ -68,7 +88,7 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
               {snap.classes.map((c, j) => {
                 const spare = Math.max(0, c.allowed - c.lost);
                 return (
-                  <span key={j} className={`cls${c.collected >= c.need ? ' done' : ''}`} style={{ ['--c' as string]: CLASS_ACCENT[colorSlot({ tier, classRadii: new Array(classCount) }, j)] }}>
+                  <span key={`${j}-${c.lost}`} className={`cls${c.collected >= c.need ? ' done' : ''}${c.lost > 0 ? ' hit' : ''}`} style={{ ['--c' as string]: CLASS_ACCENT[colorSlot({ tier, classRadii: new Array(classCount) }, j)] }}>
                     <i className="dot" style={{ width: 10 + j * 4, height: 10 + j * 4 }} aria-hidden />
                     <b>{c.collected}/{c.need}</b>
                     {Array.from({ length: c.allowed }, (_, p) => <u key={p} className={p < spare ? '' : 'gone'} aria-hidden />)}
@@ -101,10 +121,11 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
         <button className="btn icon" onClick={onSound} aria-pressed={sound} aria-label={sound ? 'Mute sound' : 'Turn sound on'}>{sound ? '🔊' : '🔇'}</button>
         {canTiltPhone && (
           <button className="btn" aria-pressed={phoneTilt} onClick={onPhoneTilt}>
-            {phoneTilt ? 'Phone tilt: on' : 'Tilt phone'}
+            {phoneTilt ? '📱 Gyro on' : '📱 Gyro'}
           </button>
         )}
       </footer>
+      <ComboPop />
       <div className="sr-only" aria-live="polite">
         {snap ? `${snap.collected} of ${snap.required} balls home, ${snap.lost} lost` : ''}
       </div>

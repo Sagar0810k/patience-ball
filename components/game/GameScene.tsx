@@ -3,6 +3,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefO
 import { useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
+import { skinOf } from '@/lib/skins';
+import { PLATE_T } from '@/lib/levels/geometry';
 import type { GameSettings, GameSnapshot, Level } from '@/lib/types';
 import { BALL_COLORS, THEMES, colorSlot } from '@/lib/themes';
 import { FIXED_DT, loadRapier } from '@/lib/physics/physicsWorld';
@@ -45,7 +47,14 @@ export default function GameScene({ level, attempt, paused, settings, controller
   const theme = THEMES[level.theme % THEMES.length];
   const simRef = useRef<Simulation | null>(null);
   const acc = useRef(0);
+  const skin = skinOf(settings.skin);
   const marbles = useRef<THREE.InstancedMesh>(null);
+  const streak = useRef(0);
+  const lastCup = useRef(0);
+  const lastBump = useRef(0);
+  const doorOpen = useRef<Record<number, boolean>>({});
+  const doorBars = useRef<Record<number, THREE.Mesh | null>>({});
+  const doorList = useMemo(() => level.trays.flatMap((t) => t.obstacles.filter((o): o is Extract<typeof o, { kind: 'door' }> => o.kind === 'door').map((o) => ({ o, top: t.cy + PLATE_T / 2 }))), [level]);
   const board = useRef<THREE.Group>(null);
   const input = useRef({ ptr: [0, 0], key: [0, 0], dev: [0, 0] });
   const { camera, gl } = useThree();
@@ -72,10 +81,23 @@ export default function GameScene({ level, attempt, paused, settings, controller
       const push = () => snapCb.current(sim!.snapshot());
       sim.onEvent = (e: SimEvent) => {
         const st = settingsRef.current;
-        if (e === 'collected') { sound.cup(); haptic(15, st.haptics); }
+        if (e === 'collected') {
+          const now = performance.now();
+          streak.current = now - lastCup.current < 1600 ? streak.current + 1 : 1;
+          lastCup.current = now;
+          sound.cup(streak.current);
+          haptic(streak.current > 1 ? [15, 30, 25] : 15, st.haptics);
+          if (streak.current > 1) window.dispatchEvent(new CustomEvent('pb-combo', { detail: streak.current }));
+        }
         else if (e === 'lost') { sound.lose(); haptic(30, st.haptics); }
         else if (e === 'won') { sound.win(); haptic([30, 40, 60], st.haptics); }
         else if (e === 'failed') sound.fail();
+        else if (e === 'portal') sound.portal();
+        else if (e === 'bump') {
+          const now = performance.now();
+          if (now - lastBump.current > 90) { lastBump.current = now; sound.bump(); haptic(8, st.haptics); }
+          return; // no HUD refresh needed for a bump
+        }
         push();
       };
       push();
@@ -164,6 +186,29 @@ export default function GameScene({ level, attempt, paused, settings, controller
         const q = s.body.rotation();
         m.position.set(p.x, p.y, p.z);
         m.quaternion.set(q.x, q.y, q.z, q.w);
+        if (s.o.kind === 'door') {
+          // Telegraph: the door flashes in the last second before it closes and before it opens, so the timing is readable.
+          const d = s.o, P = d.open + d.closed, ph = (((sim.elapsed + d.offset) % P) + P) % P;
+          const isOpen = ph < d.open;
+          if (doorOpen.current[d.id] !== undefined && doorOpen.current[d.id] !== isOpen) sound.door(isOpen);
+          doorOpen.current[d.id] = isOpen;
+          const warn = ph < d.open ? d.open - ph < 1.1 : P - ph < 1.1;
+          const mat = (m.children[0] as THREE.Mesh | undefined)?.material as THREE.MeshStandardMaterial | undefined;
+          if (mat) mat.emissiveIntensity = warn ? 1.2 + 1.2 * Math.sin(sim.elapsed * 18) : ph < d.open ? 0.25 : 0.7;
+          // Countdown bar: it shrinks over the open time (green) and over the closed time (red).
+          const bar = doorBars.current[d.id];
+          if (bar) {
+            const left = ph < d.open ? (d.open - ph) / d.open : (P - ph) / d.closed;
+            bar.scale.set(d.hx > d.hz ? Math.max(0.001, left) : 1, 1, d.hx > d.hz ? 1 : Math.max(0.001, left));
+            (bar.material as THREE.MeshBasicMaterial).color.set(ph < d.open ? '#5dffb0' : '#ff6b87');
+          }
+        }
+        if (s.o.kind === 'gate') {
+          // Telegraph: the gate pulses while it is changing direction (about to rise or sink).
+          const g = s.o, wave = Math.sin(g.speed * sim.elapsed + g.phase);
+          const mat = (m.children[0] as THREE.Mesh | undefined)?.material as THREE.MeshStandardMaterial | undefined;
+          if (mat) { mat.emissive.set('#ff7a00'); mat.emissiveIntensity = Math.abs(wave) < 0.3 ? 0.6 + 0.6 * Math.sin(sim.elapsed * 14) : 0; }
+        }
       });
     }
     const mesh = marbles.current;
@@ -225,6 +270,16 @@ export default function GameScene({ level, attempt, paused, settings, controller
           {level.trays.map((t) => (
             <TrayMesh key={t.index} tray={t} level={level} theme={theme} />
           ))}
+          {doorList.map(({ o, top }) => {
+            const long = Math.max(o.hx, o.hz) * 2;
+            const alongX = o.hx > o.hz;
+            return (
+              <mesh key={`${runId}-bar-${o.id}`} ref={(b) => { doorBars.current[o.id] = b; }} position={[o.x + (alongX ? 0 : 0.5), top + 0.06, o.z + (alongX ? 0.5 : 0)]}>
+                <boxGeometry args={[alongX ? long : 0.14, 0.06, alongX ? 0.14 : long]} />
+                <meshBasicMaterial color="#5dffb0" toneMapped={false} />
+              </mesh>
+            );
+          })}
           {movers.map((o, i) => (
             <group key={`${runId}-${o.id}`} ref={(m) => { moverRefs.current[i] = m; }} position={[o.x, 0, o.z]}>
               {o.kind === 'sweeper' && (
@@ -265,7 +320,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
           ))}
           <instancedMesh key={runId} ref={marbles} args={[undefined, undefined, level.balls.length]} frustumCulled={false} castShadow>
             <sphereGeometry args={[1, 28, 20]} />
-            <meshPhysicalMaterial color="#ffffff" metalness={0.55} roughness={0.18} clearcoat={1} clearcoatRoughness={0.08} envMapIntensity={1.8} />
+            <meshPhysicalMaterial color="#ffffff" metalness={skin.metalness} roughness={skin.roughness} clearcoat={skin.clearcoat} clearcoatRoughness={0.08} envMapIntensity={1.8} />
           </instancedMesh>
         </group>
       </group>
