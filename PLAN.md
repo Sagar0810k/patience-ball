@@ -1,4 +1,4 @@
-# Patience Balls — Project Plan
+# Control Your Balls — Project Plan
 
 ## Overview
 A premium casual 3D physics-puzzle browser game. Marbles roll down staggered platforms, fall through real holes, and get captured in target cups. The player drags a release cursor on the top platform to aim and release marbles, filling all target holes to win. Infinite deterministic seeded levels, tier securing, local persistence, PWA support.

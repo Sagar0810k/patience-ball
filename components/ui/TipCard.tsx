@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { Tip } from '@/lib/tips';
+import { Pictogram } from './Pictogram';
 
 export default function TipCard({ tips, onDone }: { tips: Tip[]; onDone: () => void }) {
   const [i, setI] = useState(0);
@@ -10,7 +11,7 @@ export default function TipCard({ tips, onDone }: { tips: Tip[]; onDone: () => v
     <div className="tut tip" role="dialog" aria-modal="true" aria-label="New element">
       <div className="tut-card">
         <span className="tip-badge">NEW</span>
-        <div className="tip-icon" aria-hidden>{t.icon}</div>
+        <div className="tip-icon" aria-hidden><Pictogram name={t.key} size={84} /></div>
         <h2>{t.title}</h2>
         <p>{t.body}</p>
         <div className="tut-actions">

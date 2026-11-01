@@ -1,5 +1,6 @@
 'use client';
 import { nextUnlock } from '@/lib/tips';
+import { Mascot } from './Pictogram';
 import { useState, type ReactNode } from 'react';
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
@@ -17,8 +18,10 @@ export function PauseOverlay({ practice, onPractice, onResume, onRestart, onMenu
   return (
     <Card title="Paused">
       <button className="btn primary big" autoFocus onClick={onResume}>Resume</button>
-      <button className="btn big" onClick={onRestart}>Restart level</button>
-      {onPractice && <button className="btn" onClick={onPractice}>{practice ? 'Leave practice' : 'Practice (no losses)'}</button>}
+      <div className="btn-row">
+        <button className="btn" onClick={onRestart}>Restart</button>
+        {onPractice && <button className="btn" onClick={onPractice}>{practice ? 'Leave practice' : 'Practice'}</button>}
+      </div>
       <button className="btn" onClick={onMenu}>Main menu</button>
     </Card>
   );
@@ -30,15 +33,17 @@ export function FailedOverlay({ onSkip, collected, required, lost, lostTrap, los
     : `${lostVoid} ball${lostVoid === 1 ? '' : 's'} rolled off an open edge. Tilt gently near edges with a red glow.`;
   return (
     <Card title={required - collected <= 2 && required > collected ? `So close! ${required - collected} more needed` : 'Too many balls lost'}>
-      <div className="face" aria-hidden>{required - collected <= 2 ? '😮' : '😵'}</div>
+      <Mascot mood={required - collected <= 2 ? 'sad' : 'dizzy'} />
       <div className="facts">
         <div><b>{collected}/{required}</b><small>home</small></div>
         <div><b>{lost}</b><small>lost</small></div>
       </div>
       <p>{why}</p>
       <button className="btn primary big" autoFocus onClick={onRetry}>Try again</button>
-      {onSkip && <button className="btn" onClick={onSkip}>Skip this level</button>}
-      <button className="btn" onClick={onMenu}>Main menu</button>
+      <div className="btn-row">
+        {onSkip && <button className="btn" onClick={onSkip}>Skip level</button>}
+        <button className="btn" onClick={onMenu}>Menu</button>
+      </div>
     </Card>
   );
 }
@@ -48,7 +53,7 @@ export const starsFor = (lost: number, allowedLoss: number) => (lost === 0 ? 3 :
 
 async function shareResult(text: string, url: string) {
   try {
-    if (navigator.share) { await navigator.share({ title: 'Patience Balls', text, url }); return 'Shared!'; }
+    if (navigator.share) { await navigator.share({ title: 'Control Your Balls', text, url }); return 'Shared!'; }
     await navigator.clipboard.writeText(`${text} ${url}`);
     return 'Link copied!';
   } catch { return ''; }
@@ -60,28 +65,32 @@ export function CompletedOverlay({ levelNumber, challenge, best, nextLabel, stre
   const up = levelNumber && !random ? nextUnlock(levelNumber) : null;
   return (
     <Card title="Level complete">
-      <div className="confetti" aria-hidden>{Array.from({ length: 24 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#6ff5f7', '#ffd75e', '#ff6fc6', '#5dffb0'][i % 4], animationDelay: `${(i % 8) * 0.07}s`, animationDuration: `${1.4 + (i % 5) * 0.2}s` }} />)}</div>
-      <div className="face" aria-hidden>{stars === 3 ? '🤩' : stars === 2 ? '😄' : '🙂'}</div>
+      <div className="confetti" aria-hidden>{Array.from({ length: 24 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#e0a93b', '#ffd75e', '#ff6fc6', '#5dffb0'][i % 4], animationDelay: `${(i % 8) * 0.07}s`, animationDuration: `${1.4 + (i % 5) * 0.2}s` }} />)}</div>
+      <Mascot mood={stars === 3 ? 'wow' : stars === 2 ? 'happy' : 'ok'} />
       <div className="stars" aria-label={`${stars} of 3 stars`}>
-        {[1, 2, 3].map((n) => <span key={n} className={n <= stars ? 'on' : ''} aria-hidden>★</span>)}
+        {[1, 2, 3].map((n) => <span key={n} className={n <= stars ? 'on' : ''} aria-hidden><svg viewBox="0 0 24 24" width="46" height="46"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z" fill="currentColor" stroke="#4a2f1c" strokeWidth="1.6" strokeLinejoin="round" /></svg></span>)}
       </div>
-      {up && <p className="upnext">{up.icon} Coming up: <b>{up.title}</b> at level {up.level}</p>}
-      {best && (best.prev == null ? <p className="streak">First clear: {best.secs}s</p> : best.secs < best.prev ? <p className="streak">⚡ New best! {best.secs}s (was {best.prev}s)</p> : <p>Best: {best.prev}s</p>)}
-      {streak ? <p className="streak">🔥 {streak}-day streak</p> : null}
+            <p className="streak">
+        {best && (best.prev == null ? `First clear in ${best.secs}s` : best.secs < best.prev ? `New best: ${best.secs}s (was ${best.prev}s)` : `Best: ${best.prev}s`)}
+        {best && streak ? ' · ' : ''}{streak ? `${streak}-day streak` : ''}
+      </p>
       <div className="facts">
         <div><b>{total - lost}/{total}</b><small>balls home</small></div>
         <div><b>{Math.round(seconds)}s</b><small>time</small></div>
         <div><b>{lost}</b><small>lost</small></div>
       </div>
       <button className="btn primary big" autoFocus onClick={onNext}>{nextLabel ?? (random ? 'Another random level' : 'Next level')}</button>
+      <div className="btn-row">
+        <button className="btn" onClick={onRetry}>{best && best.prev != null && best.secs >= best.prev ? `Beat ${best.prev}s` : 'Replay'}</button>
+        <button className="btn" onClick={onMenu}>Menu</button>
+      </div>
       {challenge && (
-        <button className="btn" onClick={async () => {
+        <button className="link" onClick={async () => {
           const url = `${location.origin}/?c=${challenge.level}.${challenge.seed}`;
-          setMsg(await shareResult(`I cleared Patience Balls level ${challenge.level} in ${Math.round(seconds)}s ${'⭐'.repeat(stars)}. Beat me!`, url));
-        }}>{msg || '🔗 Challenge a friend'}</button>
+          setMsg(await shareResult(`I cleared Control Your Balls level ${challenge.level} in ${Math.round(seconds)}s (${stars} of 3 stars). Beat me!`, url));
+        }}>{msg || 'Challenge a friend'}</button>
       )}
-      <button className="btn big" onClick={onRetry}>{best && best.prev != null && best.secs >= best.prev ? `Beat ${best.prev}s` : 'Replay'}</button>
-      <button className="btn" onClick={onMenu}>Main menu</button>
+      {up && <p className="upnext">Coming up: <b>{up.title}</b> at level {up.level}</p>}
     </Card>
   );
 }

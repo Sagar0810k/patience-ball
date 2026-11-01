@@ -17,6 +17,19 @@ import CameraController, { DEFAULT_EL, MIN_EL, TOP_EL, defaultView, type ViewSta
 
 /** Input sources are summed, so keys, a drag and phone tilt can all steer the board. */
 const TRAIL = 36;
+/** True while the ball that would win the level is rolling up to a goal hole. */
+function lastBallNear(sim: Simulation, level: Level) {
+  if (sim.status !== 'playing' || sim.collected !== level.required - 1) return false;
+  for (let i = 0; i < level.balls.length; i++) {
+    if (sim.isHidden(i)) continue;
+    const p = sim.phys.balls[i].translation();
+    for (const t of level.trays) {
+      if (Math.abs(p.y - t.cy) > 1.5) continue;
+      for (const h of t.holes) if (h.kind === 'goal' && Math.hypot(p.x - h.x, p.z - h.z) < h.r + 1.2) return true;
+    }
+  }
+  return false;
+}
 export interface GameController {
   setPointer(x: number, z: number): void;
   /** Current drag tilt, which the board keeps after you let go. */
@@ -158,18 +171,6 @@ export default function GameScene({ level, attempt, paused, settings, controller
   const moverRefs = useRef<Array<THREE.Object3D | null>>([]);
   const hazard = useMemo(() => hazardTexture(), []);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const stars = useMemo(() => {
-    const n = 160;
-    const a = new Float32Array(n * 3);
-    let s = level.seed | 1;
-    const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) | 0) >>> 0) / 4294967296;
-    for (let i = 0; i < n; i++) {
-      a[i * 3] = center.x + (rnd() - 0.5) * 140;
-      a[i * 3 + 1] = center.y - 30 + rnd() * 70;
-      a[i * 3 + 2] = center.z - 40 - rnd() * 40;
-    }
-    return a;
-  }, [level, center]);
 
   useFrame((_, dt) => {
     const sim = simRef.current;
@@ -183,7 +184,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
       sim.setInput(x * Math.cos(a) + z * Math.sin(a), -x * Math.sin(a) + z * Math.cos(a));
     }
     if (sim && !paused) {
-      acc.current += Math.min(dt, 1 / 30); // below 30 fps the game slows down instead of piling up physics work
+      acc.current += Math.min(dt, 1 / 30) * (lastBallNear(sim, level) ? 0.45 : 1); // slow-motion as the winning ball reaches a goal; // below 30 fps the game slows down instead of piling up physics work
       while (acc.current >= FIXED_DT) {
         sim.step();
         acc.current -= FIXED_DT;
@@ -294,12 +295,6 @@ export default function GameScene({ level, attempt, paused, settings, controller
       {/* Procedural reflections: no downloaded HDRI, so it works offline. */}
       <StudioEnv />
 
-      <points>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[stars, 3]} />
-        </bufferGeometry>
-        <pointsMaterial color="#ffffff" size={0.25} sizeAttenuation transparent opacity={0.7} depthWrite={false} />
-      </points>
 
       {/* The whole board tips as one piece, about its centre. */}
       <group ref={board} position={center}>

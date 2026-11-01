@@ -1,4 +1,5 @@
 'use client';
+import Icon from './Icons';
 import type { SaveData } from '@/lib/types';
 import { WORLD_SIZE, worldName, worldOf } from '@/lib/worlds';
 
@@ -33,7 +34,7 @@ export default function LevelSelect({ save, onPick, onBack }: Props) {
                 const st = save.stars[n] ?? 0;
                 return (
                   <button key={n} className={`level-cell${done ? ' done' : n === unlocked ? ' next' : ''}${n % 10 === 0 ? ' boss' : n % 5 === 0 ? ' hard' : ''}`} disabled={locked} onClick={() => onPick(n)} aria-label={`Level ${n}${done ? `, completed, ${st} stars` : locked ? ', locked' : ''}`}>
-                    {locked ? '🔒' : n}
+                    {locked ? <Icon name="lock" size={18} /> : n}
                     {done ? <small className="stars-row">{'★'.repeat(st)}{'☆'.repeat(3 - st)}</small> : !locked && n % 5 === 0 ? <small>{n % 10 === 0 ? 'BOSS' : 'HARD'}</small> : null}
                   </button>
                 );

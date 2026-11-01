@@ -58,9 +58,10 @@ function TrayMesh({ tray, level, theme }: Props) {
     return {
       plate: [
         new THREE.MeshStandardMaterial({ color: top, map: gridTexture(), roughness: rough, metalness: tray.surface === 'ice' ? 0.35 : 0.15, emissive: tray.surface === 'bouncy' ? '#ff2fb8' : '#000000', emissiveIntensity: 0.18 }),
-        new THREE.MeshStandardMaterial({ color: '#0a0d24', roughness: 0.6, metalness: 0.3 }),
+        new THREE.MeshStandardMaterial({ color: '#2a1a0c', roughness: 0.7, metalness: 0.1 }),
       ] as THREE.Material[],
-      wall: new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.deep).lerp(new THREE.Color('#3b3f86'), 0.55), emissive: theme.deep, emissiveIntensity: 0.15, roughness: 0.35, metalness: 0.45 }),
+      wall: new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.deep).lerp(new THREE.Color('#4a2f1c'), 0.6), emissive: '#000000', emissiveIntensity: 0, roughness: 0.6, metalness: 0.05 }),
+      pit: new THREE.MeshBasicMaterial({ color: '#150c05' }),
       goal: new THREE.MeshStandardMaterial({ color: '#00d96b', emissive: '#00ff7b', emissiveIntensity: 1, toneMapped: false }),
       trap: new THREE.MeshStandardMaterial({ color: '#b3173f', emissive: '#ff2a5c', emissiveIntensity: 0.9 }),
       beam: new THREE.MeshBasicMaterial({ color: '#16ff86', transparent: true, opacity: 0.22, toneMapped: false, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
@@ -82,7 +83,7 @@ function TrayMesh({ tray, level, theme }: Props) {
       marker: new THREE.MeshBasicMaterial({ color: '#16ff86', toneMapped: false, depthTest: false }),
     };
   }, [level.trays.length, tray.index, theme, tray.surface]);
-  useEffect(() => () => { mats.plate.forEach((m) => m.dispose()); mats.wall.dispose(); mats.goal.dispose(); mats.trap.dispose(); mats.beam.dispose(); mats.peg.dispose(); mats.bar.dispose(); mats.bumper.dispose(); mats.cap.dispose(); mats.mud.dispose(); mats.edge.dispose(); mats.glassSmall.dispose(); mats.glassBig.dispose(); mats.ice.dispose(); mats.rough.dispose(); mats.bouncy.dispose(); mats.mudDark.dispose(); mats.pad.dispose(); mats.accent.forEach((m) => m.dispose()); mats.glass.forEach((m) => m.dispose()); mats.marker.dispose(); }, [mats]);
+  useEffect(() => () => { mats.plate.forEach((m) => m.dispose()); mats.wall.dispose(); mats.goal.dispose(); mats.pit.dispose(); mats.trap.dispose(); mats.beam.dispose(); mats.peg.dispose(); mats.bar.dispose(); mats.bumper.dispose(); mats.cap.dispose(); mats.mud.dispose(); mats.edge.dispose(); mats.glassSmall.dispose(); mats.glassBig.dispose(); mats.ice.dispose(); mats.rough.dispose(); mats.bouncy.dispose(); mats.mudDark.dispose(); mats.pad.dispose(); mats.accent.forEach((m) => m.dispose()); mats.glass.forEach((m) => m.dispose()); mats.marker.dispose(); }, [mats]);
 
   const matsRef = useRef(mats);
   useEffect(() => { matsRef.current = mats; }, [mats]);
@@ -102,13 +103,11 @@ function TrayMesh({ tray, level, theme }: Props) {
     if (hasGoal) {
       flash.current *= 0.92;
       matsRef.current.goal.emissiveIntensity = 0.9 + 0.4 * s + flash.current * 2.2;
-      matsRef.current.beam.opacity = 0.3 + 0.1 * s;
     }
     // Magnet rings breathe in (pull) or out (push) so their reach is visible.
     magnets.current.forEach((g, i) => { if (g) { const ph = (clock.elapsedTime * 1.4 + i * 0.5) % 1; const sc = magnetList[i]?.push > 0 ? 1.06 - 0.12 * ph : 0.94 + 0.12 * ph; g.scale.set(sc, 1, sc); } });
     if (hasBumper) matsRef.current.bumper.emissiveIntensity = 0.7 + 0.45 * Math.sin(clock.elapsedTime * 5);
   });
-  const beamH = Math.max(3, level.bounds.max[1] - tray.cy + 3);
 
   return (
     <group position={[tray.cx, tray.cy, tray.cz]}>
@@ -292,28 +291,25 @@ function TrayMesh({ tray, level, theme }: Props) {
         const goal = h.kind === 'goal';
         return (
           <group key={h.id}>
-            <mesh position={pos} rotation={[-Math.PI / 2, 0, 0]} material={goal ? mats.goal : mats.trap}>
-              <ringGeometry args={[h.r, h.r + (goal ? 0.16 : 0.09), 48]} />
+            {/* Dark pit under the hole, so the hole reads as a hole instead of showing the floor below. */}
+            <mesh position={[pos[0], -PLATE_T / 2 - 0.03, pos[2]]} rotation={[-Math.PI / 2, 0, 0]} material={mats.pit} raycast={() => null}>
+              <circleGeometry args={[h.r + 0.05, 40]} />
             </mesh>
-            {!goal && [Math.PI / 4, -Math.PI / 4].map((a) => (
-              <mesh key={a} position={[pos[0], pos[1] + 0.006, pos[2]]} rotation={[-Math.PI / 2, 0, a]} material={mats.trap}>
-                <planeGeometry args={[h.r * 2.7, 0.07]} />
-              </mesh>
-            ))}
+            <mesh position={pos} rotation={[-Math.PI / 2, 0, 0]} material={goal ? mats.goal : mats.trap}>
+              <ringGeometry args={[h.r, h.r + (goal ? 0.26 : 0.12), 48]} />
+            </mesh>
             {goal && (
               <>
                 {/* Ring in the colour of the ball size this hole is made for. */}
                 <mesh position={[pos[0], pos[1] + 0.004, pos[2]]} rotation={[-Math.PI / 2, 0, 0]} material={mats.accent[colorSlot(level, h.cls ?? 0)]}>
-                  <ringGeometry args={[h.r + 0.16, h.r + 0.3, 48]} />
+                  <ringGeometry args={[h.r + 0.26, h.r + 0.42, 48]} />
                 </mesh>
-                {/* Light beam: visible above the upper trays, and from any angle. */}
-                <mesh position={[pos[0], PLATE_T / 2 + beamH / 2, pos[2]]} material={mats.beam} renderOrder={5} raycast={() => null}>
-                  <cylinderGeometry args={[h.r * 0.95, h.r * 0.95, beamH, 32, 1, true]} />
-                </mesh>
-                {/* Arrow above the beam, drawn through everything, so a goal can never hide behind a tray. */}
-                <mesh position={[pos[0], PLATE_T / 2 + beamH + 0.5, pos[2]]} rotation={[Math.PI, 0, 0]} material={mats.marker} renderOrder={6} raycast={() => null}>
-                  <coneGeometry args={[0.45, 0.9, 4]} />
-                </mesh>
+                {/* First levels only: a thin ring that shows through floors, so a new player can see where home is. */}
+                {level.levelNumber <= 3 && (
+                  <mesh position={[pos[0], pos[1] + 0.02, pos[2]]} rotation={[-Math.PI / 2, 0, 0]} material={mats.marker} renderOrder={6} raycast={() => null}>
+                    <ringGeometry args={[h.r + 0.55, h.r + 0.68, 48]} />
+                  </mesh>
+                )}
                 {/* Glass lid: smaller balls roll over this hole instead of falling in. */}
                 {(h.cls ?? 0) > 0 && (
                   <mesh position={[pos[0], pos[1] + 0.01, pos[2]]} rotation={[-Math.PI / 2, 0, 0]} material={mats.glass[colorSlot(level, h.cls ?? 0)]} raycast={() => null}>

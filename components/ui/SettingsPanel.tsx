@@ -1,4 +1,5 @@
 'use client';
+import { Pictogram } from './Pictogram';
 import { useRef, useState } from 'react';
 import type { GameSettings, SaveData } from '@/lib/types';
 import { allTips, seenTips } from '@/lib/tips';
@@ -36,7 +37,7 @@ export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onRep
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     const data = parseImport(await f.text());
-    if (!data) return setMsg('That file is not a valid Patience Balls save. Nothing changed.');
+    if (!data) return setMsg('That file is not a valid Control Your Balls save. Nothing changed.');
     if (window.confirm(`Replace your current progress with this save (highest level ${data.highestUnlocked})?`)) {
       onReplace(data);
       setMsg('Save imported.');
@@ -51,7 +52,7 @@ export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onRep
         <h2>Settings</h2>
       </div>
       {(
-        [['sound', 'Sound'], ['music', 'Music'], ['assist', 'Gentle tilt (easier control)'], ['leftHand', 'Left-handed layout'], ['contrast', 'High contrast'], ['haptics', 'Vibration'], ['reducedMotion', 'Reduce motion']] as const
+        [['sound', 'Sound'], ['music', 'Music']] as const
       ).map(([k, label]) => (
         <label key={k} className="row">
           <span>{label}</span>
@@ -73,6 +74,17 @@ export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onRep
           <option value={2}>Very quick</option>
         </select>
       </label>
+      <details className="fold">
+        <summary>Comfort and accessibility</summary>
+        {(
+          [['assist', 'Gentle tilt (easier control)'], ['leftHand', 'Left-handed layout'], ['contrast', 'High contrast'], ['haptics', 'Vibration'], ['reducedMotion', 'Reduce motion']] as const
+        ).map(([k, label]) => (
+        <label key={k} className="row">
+          <span>{label}</span>
+          <input type="checkbox" checked={s[k]} onChange={() => toggle(k)} />
+        </label>
+        ))}
+      </details>
       <h3>Ball style</h3>
       <div className="skins" role="radiogroup" aria-label="Ball style">
         {SKINS.map((k) => {
@@ -81,16 +93,18 @@ export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onRep
             <button key={k.id} role="radio" aria-checked={s.skin === k.id} disabled={locked} className={`skin${s.skin === k.id ? ' on' : ''}`} onClick={() => onSettings({ ...s, skin: k.id })}>
               <i style={{ filter: `saturate(${0.6 + k.metalness * 0.8}) brightness(${1 + k.clearcoat * 0.1})`, opacity: locked ? 0.4 : 1 }} />
               <b>{k.name}</b>
-              <small>{locked ? `🔒 ${k.stars}★` : 'Unlocked'}</small>
+              <small>{locked ? `${k.stars}★ to unlock` : 'Unlocked'}</small>
             </button>
           );
         })}
       </div>
+      <details className="fold">
+        <summary>Discoveries, progress and save data</summary>
       <h3>Discovered</h3>
       <div className="badges" aria-label="Elements you have discovered">
         {allTips().map((t) => {
           const got = seen.some((x) => x.key === t.key);
-          return <span key={t.key} className={`badge${got ? ' got' : ''}`} title={got ? t.title : 'Not discovered yet'}>{got ? t.icon : '?'}<small>{got ? t.title : '???'}</small></span>;
+          return <span key={t.key} className={`badge${got ? ' got' : ''}`} title={got ? t.title : 'Not discovered yet'}>{got ? <Pictogram name={t.key} size={40} /> : '?'}<small>{got ? t.title : '???'}</small></span>;
         })}
       </div>
       <h3>Progress</h3>
@@ -111,6 +125,7 @@ export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onRep
       </div>
       <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
       <p role="status" className="note">{msg}</p>
+      </details>
     </main>
   );
 }

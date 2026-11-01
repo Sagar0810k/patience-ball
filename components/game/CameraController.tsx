@@ -49,7 +49,7 @@ export default function CameraController({ level, reducedMotion, view }: { level
     // Footprint as seen from this azimuth, plus room for the tilt swing and the HUD.
     const halfW = ((ca * W + sa * D) / 2) * 1.28;
     const halfH = (((sa * W + ca * D) * Math.sin(el) + Hh * Math.cos(el)) / 2) * 1.45;
-    const dist = (Math.max(halfH / tanHalf, halfW / (tanHalf * aspect)) + 3) * zoom;
+    const dist = (Math.max(halfH / tanHalf, halfW / (tanHalf * aspect)) + 1.8) * zoom * (aspect > 1.2 ? 0.88 : 1);
     const cx = (min[0] + max[0]) / 2, cy = (min[1] + max[1]) / 2, cz = (min[2] + max[2]) / 2;
     camera.position.set(cx + dist * Math.cos(el) * Math.sin(az), cy + dist * Math.sin(el), cz + dist * Math.cos(el) * Math.cos(az));
     camera.lookAt(cx, cy, cz);

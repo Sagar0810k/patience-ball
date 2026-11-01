@@ -1,4 +1,7 @@
 'use client';
+import { readMissions } from '@/lib/missions';
+import Icon from './Icons';
+import MenuBoard from './MenuBoard';
 
 interface Props {
   level: number;
@@ -18,44 +21,40 @@ interface Props {
 export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, onDaily, daily, onWeekly, onInstall, ready }: Props) {
   return (
     <main className="menu">
-      <span className="orb a" aria-hidden />
-      <span className="orb b" aria-hidden />
-      <span className="orb c" aria-hidden />
-      <span className="orb d" aria-hidden />
-      <div className="hero" aria-hidden>
-        <div className="mini-board">
-          <i className="mh good" />
-          <i className="mh bad" />
-          <i className="mb b1" />
-          <i className="mb b2" />
-          <i className="mb b3" />
-        </div>
-      </div>
-      <h1>Patience<br />Balls</h1>
-      <p className="tagline">Tilt the board. Roll every ball home.</p>
+      <h1 aria-label="Control Your Balls"><span>Control</span><em>Your</em><span>Balls</span></h1>
+      <MenuBoard onWin={onPlay} ready={ready} />
+      <p className="tagline">Drag the board to tilt it. Roll the ball into the green hole.</p>
       <div className="menu-actions">
         <button className="btn primary big" onClick={onPlay} disabled={!ready}>
           {completed > 0 ? `▶  Continue · Level ${level}` : '▶  Play'}
         </button>
-        <button className={`btn daily${daily.done ? ' done' : ''}`} onClick={onDaily} disabled={!ready}>
-          {daily.done ? '✓ Daily done' : '🔥 Daily challenge'}{daily.streak > 0 && <small> · {daily.streak}-day streak</small>}
-        </button>
-        <button className={`btn daily${daily.weeklyDone ? ' done' : ''}`} onClick={onWeekly} disabled={!ready}>{daily.weeklyDone ? '✓ Weekly done' : '🏆 Weekly challenge · hard'}</button>
         <div className="row2">
+          <button className={`btn daily${daily.done ? ' done' : ''}`} onClick={onDaily} disabled={!ready}>
+            {daily.done ? '✓ Daily' : <><Icon name="flame" size={18} /> Daily</>}{daily.streak > 0 && <small> {daily.streak}d</small>}
+          </button>
           <button className="btn" onClick={onLevels} disabled={!ready}>Levels</button>
-          <button className="btn" onClick={onRandom} disabled={!ready}>Random</button>
         </div>
-        {onInstall && <button className="btn ghost" onClick={onInstall}>📲 Install app</button>}
-        <div className="row2">
-          <button className="btn ghost" onClick={onTutorial} disabled={!ready}>🎓 Tutorial</button>
-          <button className="btn ghost" onClick={onSettings}>⚙ Settings</button>
-        </div>
+        {onInstall && <button className="btn ghost" onClick={onInstall}><Icon name="install" size={18} /> Install app</button>}
       </div>
-      <div className="chips" aria-label="Progress">
-        <span className="chip">World {Math.ceil(level / 10)} · {((level - 1) % 10) + 1}/10 <i className="wbar"><b style={{ width: `${(((level - 1) % 10) / 10) * 100}%` }} /></i></span>
-        <span className="chip">★ {completed} level{completed === 1 ? '' : 's'} cleared</span>
-        
-      </div>
+      <p className="where">World {Math.ceil(level / 10)} · level {((level - 1) % 10) + 1} of 10</p>
+      <details className="more">
+        <summary>More</summary>
+        <nav className="tabs" aria-label="More modes">
+          <button onClick={onWeekly} disabled={!ready}>{daily.weeklyDone ? '✓ Weekly' : 'Weekly'}</button>
+          <button onClick={onRandom} disabled={!ready}>Random</button>
+          <button onClick={onTutorial} disabled={!ready}>Tutorial</button>
+        </nav>
+        <section className="missions" aria-label="Daily missions" suppressHydrationWarning>
+          <h2>Today&apos;s missions</h2>
+          <ul>
+            {readMissions().map((m) => (
+              <li key={m.kind} className={m.have >= m.goal ? 'done' : ''}>
+                <i style={{ width: `${(m.have / m.goal) * 100}%` }} />
+                <span>{m.have >= m.goal ? '✓ ' : ''}{m.label}</span><b>{m.have}/{m.goal}</b>
+              </li>
+            ))}
+          </ul>
+        </section>
       <details className="guide">
         <summary>How to play &amp; obstacle guide</summary>
         <ol>
@@ -78,6 +77,8 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
           <li><i style={{ background: '#c86bff' }} />Portals teleport</li>
         </ul>
       </details>
+      </details>
+      <button className="gear" onClick={onSettings} aria-label="Settings"><Icon name="gear" size={22} /></button>
     </main>
   );
 }

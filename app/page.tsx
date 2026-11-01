@@ -11,6 +11,7 @@ import type { GameController } from '@/components/game/GameScene';
 import MainMenu from '@/components/ui/MainMenu';
 import GameHUD from '@/components/ui/GameHUD';
 import LevelSelect from '@/components/ui/LevelSelect';
+import { bumpMission } from '@/lib/missions';
 import { completeDaily, completeWeekly, currentStreak, dailyLevel, doneToday, weeklyDone, weeklyLevel } from '@/lib/daily';
 import TipCard from '@/components/ui/TipCard';
 import { markTipsSeen, newTips, tipsOf, type Tip } from '@/lib/tips';
@@ -54,6 +55,13 @@ export default function Page() {
   const [paused, setPaused] = useState(false);
   const [tutorial, setTutorial] = useState(false);
   const [splash, setSplash] = useState(true);
+  useEffect(() => {
+    const cup = () => bumpMission('balls');
+    const combo = (e: Event) => { if ((e as CustomEvent<number>).detail >= 3) bumpMission('combo'); };
+    window.addEventListener('pb-cup', cup);
+    window.addEventListener('pb-combo', combo);
+    return () => { window.removeEventListener('pb-cup', cup); window.removeEventListener('pb-combo', combo); };
+  }, []);
   useEffect(() => { const t = setTimeout(() => setSplash(false), 1100); return () => clearTimeout(t); }, []);
   const [tips, setTips] = useState<Tip[]>([]);
   const [snap, setSnap] = useState<GameSnapshot | null>(null);
@@ -155,10 +163,11 @@ export default function Page() {
     if (s.status === 'playing' || finished.current) return;
     finished.current = true;
     if (s.status === 'failed') setFails((f) => f + 1);
+    if (s.status === 'won') bumpMission('wins');
     const cur = saveRef.current;
     const stats = { ...cur.stats, ballsPlayed: cur.stats.ballsPlayed + s.total, ballsCollected: cur.stats.ballsCollected + s.collected };
     const mile = [100, 250, 500, 1000, 2500, 5000].find((m) => cur.stats.ballsCollected < m && stats.ballsCollected >= m);
-    if (mile) setNotice(`🎉 Milestone: ${mile.toLocaleString()} balls brought home!`);
+    if (mile) setNotice(`Milestone: ${mile.toLocaleString()} balls brought home`);
     if (s.status === 'won' && level && !random && !practice) {
       const n = level.levelNumber;
       const best = cur.bestTimes[n];
@@ -343,7 +352,7 @@ export default function Page() {
       {splash && (
         <div className="splash" aria-hidden>
           <i className="splash-ball" />
-          <b>Patience<br />Balls</b>
+          <b>Control<br /><em>Your</em><br />Balls</b>
         </div>
       )}
       {notice && (

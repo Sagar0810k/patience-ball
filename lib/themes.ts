@@ -8,18 +8,18 @@ export interface Theme {
 
 // Cyan-to-navy trays over violet skies; one per level theme index.
 export const THEMES: Theme[] = [
-  { top: '#2bd0ff', deep: '#16307a', bgTop: '#241552', bgBottom: '#7a5cc4' },
-  { top: '#2fe3c8', deep: '#12476b', bgTop: '#1d1a5e', bgBottom: '#6d6ad0' },
-  { top: '#5aa8ff', deep: '#1c2a7a', bgTop: '#2a1450', bgBottom: '#9a5cc0' },
-  { top: '#3df0e0', deep: '#173b8a', bgTop: '#1b1448', bgBottom: '#5b4bb5' },
-  { top: '#7ab8ff', deep: '#2a2a86', bgTop: '#341a5c', bgBottom: '#a96fd0' },
-  { top: '#27e1d2', deep: '#1a3a70', bgTop: '#1c1b55', bgBottom: '#8068d6' },
+  { top: '#d4a368', deep: '#a8703c', bgTop: '#12251e', bgBottom: '#2f5a48' }, // beech on green felt
+  { top: '#86aabf', deep: '#3f6580', bgTop: '#101b25', bgBottom: '#34546c' }, // blue felt
+  { top: '#cc9078', deep: '#9a5c48', bgTop: '#26171a', bgBottom: '#6a4540' }, // clay
+  { top: '#9bb97f', deep: '#5f8250', bgTop: '#131f17', bgBottom: '#40654a' }, // sage
+  { top: '#ab97c8', deep: '#6d5c98', bgTop: '#1b1730', bgBottom: '#4c4272' }, // lilac
+  { top: '#d9b95a', deep: '#a77f2c', bgTop: '#221b0e', bgBottom: '#665022' }, // mustard
 ];
 
 /** Palette slot for a ball size. On boss levels the giant last size is always gold. */
 export const colorSlot = (level: { tier: string; classRadii: number[] }, cls: number) => (level.tier === 'boss' && cls === level.classRadii.length - 1 ? 3 : cls);
 
 /** Ball body colours per size class: black, midnight blue, deep purple. */
-export const BALL_COLORS = ['#2b2f45', '#2f7bff', '#ff4fb8', '#ffc83d'];
+export const BALL_COLORS = ['#eceff3', '#2f6bff', '#e8429a', '#ffc83d'];
 /** Brighter versions for rings and HUD chips, so a size is easy to match to its hole. */
-export const CLASS_ACCENT = ['#aeb6e8', '#4d93ff', '#ff6fc6', '#ffd75e'];
+export const CLASS_ACCENT = ['#dfe4ea', '#5b8bff', '#f26cb0', '#ffd75e'];

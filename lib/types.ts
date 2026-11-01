@@ -1,4 +1,4 @@
-// Core shared types for Patience Balls.
+// Core shared types for Control Your Balls.
 
 export type HoleKind = 'trap' | 'goal';
 
