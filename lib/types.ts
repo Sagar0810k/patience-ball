@@ -37,9 +37,11 @@ export type Obstacle =
   /** A glass wall that only some ball sizes can pass: 'small' lets sizes below `cut` through, 'big' lets sizes from `cut` up through. */
   | { id: number; kind: 'filter'; x: number; z: number; hx: number; hz: number; pass: 'small' | 'big'; cut: number }
   /** A full-width door that is open for `open` seconds, then shut for `closed`: the way through only opens for a fixed time. */
-  | { id: number; kind: 'door'; x: number; z: number; hx: number; hz: number; open: number; closed: number; offset: number }
+  | { id: number; kind: 'door'; x: number; z: number; hx: number; hz: number; open: number; closed: number; offset: number; slot?: true }
   /** A magnetic disc: pulls balls in (push = 1) or throws them away (push = -1) within radius r. */
   | { id: number; kind: 'magnet'; x: number; z: number; r: number; push: 1 | -1 }
+  /** A one-way flap: balls pass in direction (dx, dz) but are pushed back if they roll the other way. */
+  | { id: number; kind: 'flap'; x: number; z: number; hx: number; hz: number; dx: number; dz: number }
   | { id: number; kind: 'portal'; x: number; z: number; r: number; tx: number; tz: number; tone: 0 | 1 };
 
 /** Floor material: ice is slippery, sticky grips, bouncy rebounds. */
@@ -113,6 +115,12 @@ export interface GameSettings {
   gyro: boolean;
   /** Quiet background music while playing. */
   music: boolean;
+  /** Gentler tilt (70 percent) for steadier control. */
+  assist: boolean;
+  /** Move the bottom buttons for left-handed play. */
+  leftHand: boolean;
+  /** Stronger outlines and brighter text. */
+  contrast: boolean;
   /** Ball finish, unlocked with stars (see lib/skins.ts). */
   skin: string;
   /** How far a drag tilts the board: 0.6 gentle, 1 normal, 1.5 quick, 2 very quick. */
@@ -150,7 +158,7 @@ export interface SaveData {
 
 export const SAVE_VERSION = 1;
 
-export const defaultSettings = (): GameSettings => ({ sound: true, haptics: true, reducedMotion: false, gyro: false, music: false, skin: 'classic', sensitivity: 1 });
+export const defaultSettings = (): GameSettings => ({ sound: true, haptics: true, reducedMotion: false, gyro: false, music: false, assist: false, leftHand: false, contrast: false, skin: 'classic', sensitivity: 1 });
 
 export const defaultStats = (): GameStats => ({
   levelsCompleted: 0,

@@ -14,6 +14,9 @@ const TIPS: Record<string, Omit<Tip, 'key'>> = {
   gate: { icon: '⛔', title: 'Gates', body: 'Striped gates sink into the floor and rise again. Roll through while one is down.' },
   door: { icon: '🚪', title: 'Timed doors', body: 'Orange doors are only open for a few seconds each cycle. Wait for the opening, then roll through.' },
   magnet: { icon: '🧲', title: 'Magnet discs', body: 'Purple discs pull balls in; orange discs push them away. A hard tilt breaks free.' },
+  slotwall: { icon: '🎰', title: 'Slot walls', body: 'A wall of three doors that open one after another. Wait at the lane that opens next.' },
+  pinball: { icon: '🎳', title: 'Bumper clusters', body: 'A diamond of bumpers ping-pongs balls around. Cross the edge of it, not the middle.' },
+  flap: { icon: '↪️', title: 'One-way flaps', body: 'Balls pass a flap in the direction of its arrows, but roll back if they try the other way. Plan your route once.' },
   portal: { icon: '🔮', title: 'Portals', body: 'Balls entering one portal come out of its twin on the same floor.' },
   block: { icon: '⬛', title: 'Corner blocks', body: 'Solid blocks reshape the floor. Balls can pile up in the corners beside them.' },
   filter: { icon: '🔷', title: 'Glass filters', body: 'Cyan glass lets only small balls through; amber glass lets only big balls through.' },
@@ -31,16 +34,22 @@ const STORE = 'pb_seen_tips';
 const read = (): string[] => { try { return JSON.parse(localStorage.getItem(STORE) ?? '[]'); } catch { return []; } };
 export const markTipsSeen = (keys: string[]) => { try { localStorage.setItem(STORE, JSON.stringify([...new Set([...read(), ...keys])])); } catch { /* storage unavailable */ } };
 
-/** Element types in this level that the player has not met yet (empty on the very first run, where the tutorial covers the basics). */
-export function newTips(level: Level): Tip[] {
-  const seen = new Set(read());
+/** Every element type in this level, new or not (for the "?" help button). */
+export function tipsOf(level: Level): Tip[] {
   const keys = new Set<string>();
   for (const t of level.trays) {
     if (t.surface !== 'normal') keys.add(t.surface);
     if (t.open.length) keys.add('open');
-    for (const o of t.obstacles) keys.add(o.kind === 'patch' ? `patch-${o.mat}` : o.kind);
+    for (const o of t.obstacles) keys.add(o.kind === 'patch' ? `patch-${o.mat}` : o.kind === 'door' && o.slot ? 'slotwall' : o.kind);
+    if (t.obstacles.filter((o) => o.kind === 'bumper').length >= 5) keys.add('pinball');
   }
-  return [...keys].filter((k) => TIPS[k] && !seen.has(k)).slice(0, 3).map((key) => ({ key, ...TIPS[key] })); // at most 3 per level; the rest wait for the next one
+  return [...keys].filter((k) => TIPS[k]).map((key) => ({ key, ...TIPS[key] }));
+}
+
+/** Element types in this level that the player has not met yet (at most 3; the rest wait for the next level). */
+export function newTips(level: Level): Tip[] {
+  const seen = new Set(read());
+  return tipsOf(level).filter((t) => !seen.has(t.key)).slice(0, 3);
 }
 
 const ALIAS: Record<string, string> = { barrier: 'bar', doorwall: 'door' };

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Environment, Lightformer } from '@react-three/drei';
+import StudioEnv from './StudioEnv';
 import * as THREE from 'three';
 import { skinOf } from '@/lib/skins';
 import { PLATE_T } from '@/lib/levels/geometry';
@@ -16,10 +16,13 @@ import { hazardTexture } from './materials';
 import CameraController, { DEFAULT_EL, MIN_EL, TOP_EL, defaultView, type ViewState } from './CameraController';
 
 /** Input sources are summed, so keys, a drag and phone tilt can all steer the board. */
+const TRAIL = 36;
 export interface GameController {
   setPointer(x: number, z: number): void;
   /** Current drag tilt, which the board keeps after you let go. */
   getPointer(): [number, number];
+  /** Total tilt in [-1, 1] per axis, from drag, keys and gyroscope. */
+  getTilt(): [number, number];
   setKeys(x: number, z: number): void;
   setDevice(x: number, z: number): void;
   resetCamera(): void;
@@ -51,6 +54,11 @@ export default function GameScene({ level, attempt, paused, settings, controller
   const marbles = useRef<THREE.InstancedMesh>(null);
   const streak = useRef(0);
   const lastCup = useRef(0);
+  const trail = useRef<THREE.InstancedMesh>(null);
+  const trailLife = useRef(new Float32Array(TRAIL));
+  const trailPos = useRef(new Float32Array(TRAIL * 4)); // x, y, z, radius
+  const trailHead = useRef(0);
+  const hintAt = useRef({ last: 0, next: 0 }); // idle hint: flash the goals when nothing has been collected for a while
   const lastBump = useRef(0);
   const doorOpen = useRef<Record<number, boolean>>({});
   const doorBars = useRef<Record<number, THREE.Mesh | null>>({});
@@ -86,6 +94,8 @@ export default function GameScene({ level, attempt, paused, settings, controller
           streak.current = now - lastCup.current < 1600 ? streak.current + 1 : 1;
           lastCup.current = now;
           sound.cup(streak.current);
+          hintAt.current.last = sim!.elapsed;
+          window.dispatchEvent(new Event('pb-cup'));
           haptic(streak.current > 1 ? [15, 30, 25] : 15, st.haptics);
           if (streak.current > 1) window.dispatchEvent(new CustomEvent('pb-combo', { detail: streak.current }));
         }
@@ -116,6 +126,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
     controllerRef.current = {
       setPointer: (x, z) => { input.current.ptr = [x, z]; },
       getPointer: () => [input.current.ptr[0], input.current.ptr[1]],
+      getTilt: () => { const i = input.current; return [Math.max(-1, Math.min(1, i.ptr[0] + i.key[0] + i.dev[0])), Math.max(-1, Math.min(1, i.ptr[1] + i.key[1] + i.dev[1]))]; },
       setKeys: (x, z) => { input.current.key = [x, z]; },
       setDevice: (x, z) => { input.current.dev = [x, z]; },
       resetCamera: () => { view.current.target = defaultView(); },
@@ -165,8 +176,9 @@ export default function GameScene({ level, attempt, paused, settings, controller
     if (sim) {
       // Tilt input is relative to the screen, so turn it by however far the camera has orbited.
       const i = input.current;
-      const x = i.ptr[0] + i.key[0] + i.dev[0];
-      const z = i.ptr[1] + i.key[1] + i.dev[1];
+      const k = settingsRef.current.assist ? 0.7 : 1; // gentle tilt
+      const x = (i.ptr[0] + i.key[0] + i.dev[0]) * k;
+      const z = (i.ptr[1] + i.key[1] + i.dev[1]) * k;
       const a = view.current.cur.az;
       sim.setInput(x * Math.cos(a) + z * Math.sin(a), -x * Math.sin(a) + z * Math.cos(a));
     }
@@ -178,6 +190,11 @@ export default function GameScene({ level, attempt, paused, settings, controller
       }
     }
     if (board.current && sim) board.current.quaternion.copy(sim.quat);
+    if (sim && !paused && sim.status === 'playing') {
+      const h = hintAt.current;
+      if (sim.elapsed < h.last) h.last = 0;
+      if (sim.elapsed - h.last > 14 && sim.elapsed > h.next) { h.next = sim.elapsed + 3; window.dispatchEvent(new Event('pb-cup')); }
+    }
     if (sim) {
       sim.phys.movers.forEach((s, i) => {
         const m = moverRefs.current[i];
@@ -227,6 +244,31 @@ export default function GameScene({ level, attempt, paused, settings, controller
       }
       mesh.instanceMatrix.needsUpdate = true;
     }
+    // Speed trail: fast balls leave a short fading streak.
+    const tr = trail.current;
+    if (tr && sim && !settingsRef.current.reducedMotion) {
+      const life = trailLife.current, pos = trailPos.current;
+      if (!paused) {
+        let spawned = 0;
+        for (let i = 0; i < level.balls.length && spawned < 3; i++) {
+          if (sim.isHidden(i)) continue;
+          const v = sim.phys.balls[i].linvel();
+          if (v.x * v.x + v.y * v.y + v.z * v.z < 100) continue;
+          const p = sim.phys.balls[i].translation(), k = trailHead.current++ % TRAIL;
+          pos[k * 4] = p.x; pos[k * 4 + 1] = p.y; pos[k * 4 + 2] = p.z; pos[k * 4 + 3] = level.balls[i].radius;
+          life[k] = 1; spawned++;
+        }
+        for (let k = 0; k < TRAIL; k++) life[k] = Math.max(0, life[k] - dt * 3.5);
+      }
+      for (let k = 0; k < TRAIL; k++) {
+        dummy.position.set(pos[k * 4], pos[k * 4 + 1], pos[k * 4 + 2]);
+        dummy.quaternion.identity();
+        dummy.scale.setScalar(pos[k * 4 + 3] * 0.55 * life[k]);
+        dummy.updateMatrix();
+        tr.setMatrixAt(k, dummy.matrix);
+      }
+      tr.instanceMatrix.needsUpdate = true;
+    }
   });
 
   const { min, max } = level.bounds;
@@ -250,12 +292,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
         target-position={[center.x, center.y, center.z]}
       />
       {/* Procedural reflections: no downloaded HDRI, so it works offline. */}
-      <Environment resolution={128} frames={1}>
-        <Lightformer form="rect" intensity={3} color="#bfa8ff" position={[0, 8, 6]} scale={[16, 5, 1]} />
-        <Lightformer form="rect" intensity={2} color="#6ff5ee" position={[-8, 3, 4]} scale={[4, 8, 1]} />
-        <Lightformer form="rect" intensity={1.5} color="#ffffff" position={[8, 4, 3]} scale={[3, 6, 1]} />
-        <Lightformer form="rect" intensity={0.8} color="#ff9ad5" position={[0, -5, 4]} scale={[14, 2, 1]} />
-      </Environment>
+      <StudioEnv />
 
       <points>
         <bufferGeometry>
@@ -318,6 +355,10 @@ export default function GameScene({ level, attempt, paused, settings, controller
               )}
             </group>
           ))}
+          <instancedMesh key={`${runId}-trail`} ref={trail} args={[undefined, undefined, TRAIL]} frustumCulled={false}>
+            <sphereGeometry args={[1, 8, 6]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.35} depthWrite={false} toneMapped={false} />
+          </instancedMesh>
           <instancedMesh key={runId} ref={marbles} args={[undefined, undefined, level.balls.length]} frustumCulled={false} castShadow>
             <sphereGeometry args={[1, 28, 20]} />
             <meshPhysicalMaterial color="#ffffff" metalness={skin.metalness} roughness={skin.roughness} clearcoat={skin.clearcoat} clearcoatRoughness={0.08} envMapIntensity={1.8} />

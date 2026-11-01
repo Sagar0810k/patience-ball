@@ -11,9 +11,9 @@ import type { GameController } from '@/components/game/GameScene';
 import MainMenu from '@/components/ui/MainMenu';
 import GameHUD from '@/components/ui/GameHUD';
 import LevelSelect from '@/components/ui/LevelSelect';
-import { completeDaily, currentStreak, dailyLevel, doneToday } from '@/lib/daily';
+import { completeDaily, completeWeekly, currentStreak, dailyLevel, doneToday, weeklyDone, weeklyLevel } from '@/lib/daily';
 import TipCard from '@/components/ui/TipCard';
-import { markTipsSeen, newTips, type Tip } from '@/lib/tips';
+import { markTipsSeen, newTips, tipsOf, type Tip } from '@/lib/tips';
 import Tutorial from '@/components/ui/Tutorial';
 import GameLoading from '@/components/ui/GameLoading';
 import SettingsPanel from '@/components/ui/SettingsPanel';
@@ -38,6 +38,14 @@ export default function Page() {
   const [level, setLevel] = useState<Level | null>(null);
   const [random, setRandom] = useState(false);
   const [daily, setDaily] = useState(false);
+  const [weekly, setWeekly] = useState(false);
+  const [practice, setPractice] = useState(false); // no-risk run: only one ball per size is needed, nothing is saved
+  const [installEvt, setInstallEvt] = useState<{ prompt: () => Promise<void> } | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => { e.preventDefault(); setInstallEvt(e as unknown as { prompt: () => Promise<void> }); };
+    window.addEventListener('beforeinstallprompt', on);
+    return () => window.removeEventListener('beforeinstallprompt', on);
+  }, []);
   const [assist, setAssist] = useState(0); // extra spare balls after repeated fails (normal levels only)
   const [fails, setFails] = useState(0); // fails on the current level; resets when another level starts
   const [bestInfo, setBestInfo] = useState<{ prev: number | null; secs: number } | null>(null);
@@ -80,13 +88,13 @@ export default function Page() {
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
     if (conn?.saveData || /^(slow-2g|2g|3g)$/.test(conn?.effectiveType ?? '')) return;
     const warm = () => { void loadGame(); void import('@/lib/physics/physicsWorld').then((m) => m.loadRapier()); };
-    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
-    if (w.requestIdleCallback) w.requestIdleCallback(warm); else setTimeout(warm, 1200);
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 1200);
   }, [loaded]);
 
   const finishTutorial = useCallback(() => { try { localStorage.setItem(TUT_KEY, '1'); } catch {} setTutorial(false); }, []);
 
-  const start = useCallback((n: number, seed?: number, isRandom = false, withTutorial = false, isDaily = false) => {
+  const start = useCallback((n: number, seed?: number, isRandom = false, withTutorial = false, isDaily = false, isWeekly = false) => {
     if (withTutorial || (n === 1 && !isRandom && !tutSeen() && saveRef.current.stats.levelsCompleted === 0)) setTutorial(true);
     const lv = generateLevel(n, seed);
     finished.current = false;
@@ -94,6 +102,8 @@ export default function Page() {
     setTips(newTips(lv));
     setRandom(isRandom);
     setDaily(isDaily);
+    setWeekly(isWeekly);
+    setPractice(false);
     setFails(0);
     setAssist(0);
     setBestInfo(null);
@@ -116,6 +126,7 @@ export default function Page() {
     setTimeout(() => start(Math.max(1, Math.min(200, Number(m[1]))), Number(m[2]) >>> 0, true), 0);
   }, [loaded, start]);
 
+  const playWeekly = () => { const d = weeklyLevel(); start(d.n, d.seed, true, false, false, true); };
   const playDaily = () => { const d = dailyLevel(); start(d.n, d.seed, true, false, true); };
   const playRandom = () => start(1 + Math.floor(Math.random() * Math.max(8, saveRef.current.highestUnlocked + 4)), randomSeed(), true);
 
@@ -146,7 +157,9 @@ export default function Page() {
     if (s.status === 'failed') setFails((f) => f + 1);
     const cur = saveRef.current;
     const stats = { ...cur.stats, ballsPlayed: cur.stats.ballsPlayed + s.total, ballsCollected: cur.stats.ballsCollected + s.collected };
-    if (s.status === 'won' && level && !random) {
+    const mile = [100, 250, 500, 1000, 2500, 5000].find((m) => cur.stats.ballsCollected < m && stats.ballsCollected >= m);
+    if (mile) setNotice(`🎉 Milestone: ${mile.toLocaleString()} balls brought home!`);
+    if (s.status === 'won' && level && !random && !practice) {
       const n = level.levelNumber;
       const best = cur.bestTimes[n];
       const secs = Math.round(s.elapsed);
@@ -163,9 +176,10 @@ export default function Page() {
       });
     } else {
       if (s.status === 'won' && daily) setDayStreak(completeDaily());
+      if (s.status === 'won' && weekly) { completeWeekly(); setDayStreak((n) => n + 0.001); }
       commit({ ...cur, stats });
     }
-  }, [level, random, daily, commit]);
+  }, [level, random, daily, weekly, practice, commit]);
 
   // Count play time only while actually playing and visible.
   useEffect(() => {
@@ -187,11 +201,11 @@ export default function Page() {
 
   const toMenu = useCallback(() => { setPaused(false); setScreen('menu'); }, []);
   const nextLevel = useCallback(() => {
-    if (daily) toMenu();
+    if (daily || weekly) toMenu();
     else if (random) playRandom();
     else start((level?.levelNumber ?? 0) + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [random, daily, level, start, toMenu]);
+  }, [random, daily, weekly, level, start, toMenu]);
 
   // Keyboard: arrows/WASD tip the board while held; shortcuts for the rest.
   useEffect(() => {
@@ -281,21 +295,27 @@ export default function Page() {
 
   // Read after hydration (loaded) so the server and first client render agree.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const dailyInfo = useMemo(() => (loaded ? { done: doneToday(), streak: currentStreak() } : { done: false, streak: 0 }), [loaded, screen, dayStreak]);
+  const dailyInfo = useMemo(() => (loaded ? { done: doneToday(), streak: currentStreak(), weeklyDone: weeklyDone() } : { done: false, streak: 0, weeklyDone: false }), [loaded, screen, dayStreak]);
 
   // Spare balls after repeated fails: quietly more forgiving, never fewer than one ball needed per size.
   const playLevel = useMemo(() => {
+    if (level && practice) {
+      const allowed = level.classAllowed.map((a, j) => a + level.classNeed[j] - 1);
+      return { ...level, classAllowed: allowed, classNeed: level.classNeed.map(() => 1), required: level.classNeed.length, allowedLoss: allowed.reduce((a, b) => a + b, 0) };
+    }
     if (!level || assist === 0) return level;
     const allowed = level.classAllowed.map((a, j) => (level.classNeed[j] - assist >= 1 ? a + assist : a));
     const need = level.classNeed.map((n, j) => n - (allowed[j] - level.classAllowed[j]));
     return { ...level, classAllowed: allowed, classNeed: need, required: need.reduce((a, b) => a + b, 0), allowedLoss: allowed.reduce((a, b) => a + b, 0) };
-  }, [level, assist]);
+  }, [level, assist, practice]);
 
   // Background music plays during a level when it is switched on in Settings (and sound is on).
   useEffect(() => {
     if (screen === 'game' && save.settings.music && save.settings.sound && !paused) startMusic(); else stopMusic();
     return stopMusic;
   }, [screen, save.settings.music, save.settings.sound, paused]);
+
+  useEffect(() => { document.documentElement.classList.toggle('hc', save.settings.contrast); }, [save.settings.contrast]);
 
   const theme = THEMES[(level?.theme ?? 0) % THEMES.length];
   const setSettings = (s: GameSettings) => commit({ ...saveRef.current, settings: s });
@@ -340,13 +360,15 @@ export default function Page() {
           onPlay={() => { sound.click(); start(Math.min(save.currentLevel, save.highestUnlocked)); }}
           onDaily={() => { sound.click(); playDaily(); }}
           daily={dailyInfo}
+          onWeekly={() => { sound.click(); playWeekly(); }}
+          onInstall={installEvt ? () => { void installEvt.prompt(); setInstallEvt(null); } : undefined}
           onRandom={() => { sound.click(); playRandom(); }}
           onLevels={() => setScreen('levels')}
           onSettings={() => setScreen('settings')}
         />
       )}
       {screen === 'game' && level && (
-        <div className="game" style={{ background: `linear-gradient(180deg, ${theme.bgTop}, ${theme.bgBottom})` }}>
+        <div className={`game${save.settings.leftHand ? ' lefty' : ''}`} style={{ background: `linear-gradient(180deg, ${theme.bgTop}, ${theme.bgBottom})` }}>
           <div className="canvas-wrap">
             <GameCanvas
               level={playLevel ?? level}
@@ -361,7 +383,7 @@ export default function Page() {
           {tutorial && snap && <Tutorial onDone={finishTutorial} />}
           {!tutorial && snap && tips.length > 0 && <TipCard tips={tips} onDone={() => { markTipsSeen(tips.map((t) => t.key)); setTips([]); }} />}
           <GameHUD
-            label={daily ? 'Daily challenge' : random ? `Random · ${level.trays.length} trays` : `Level ${level.levelNumber}${level.tier === 'boss' ? ' · BOSS' : level.tier === 'hard' ? ' · HARD' : ''}`}
+            label={practice ? 'Practice' : daily ? 'Daily challenge' : weekly ? 'Weekly challenge' : random ? `Random · ${level.trays.length} trays` : `Level ${level.levelNumber}${level.tier === 'boss' ? ' · BOSS' : level.tier === 'hard' ? ' · HARD' : ''}`}
             tier={level.tier}
             classCount={level.classRadii.length}
             snap={snap}
@@ -373,6 +395,8 @@ export default function Page() {
             onSound={() => setSettings({ ...save.settings, sound: !save.settings.sound })}
             canTiltPhone={canTiltPhone}
             phoneTilt={phoneTilt}
+            readTilt={() => controller.current?.getTilt() ?? [0, 0]}
+            onHelp={() => { const t = level ? tipsOf(level) : []; if (t.length) setTips(t); }}
             onPause={() => setPaused(true)}
             onRestart={restart}
             onCamera={() => { controller.current?.resetCamera(); calibrate.current(); }}
@@ -380,9 +404,9 @@ export default function Page() {
             onFlat={() => controller.current?.setPointer(0, 0)}
             onPhoneTilt={togglePhoneTilt}
           />
-          {paused && snap?.status === 'playing' && <PauseOverlay onResume={() => setPaused(false)} onRestart={restart} onMenu={toMenu} />}
+          {paused && snap?.status === 'playing' && <PauseOverlay practice={practice} onPractice={() => { setPractice((p) => !p); setPaused(false); restart(); }} onResume={() => setPaused(false)} onRestart={restart} onMenu={toMenu} />}
           {snap?.status === 'failed' && <FailedOverlay onSkip={!random && fails >= 3 ? skipLevel : undefined} collected={snap.collected} required={snap.required} lost={snap.lost} lostTrap={snap.lostTrap} lostVoid={snap.lostVoid} onRetry={restart} onMenu={toMenu} />}
-          {snap?.status === 'won' && <CompletedOverlay levelNumber={level?.levelNumber} challenge={level ? { level: level.levelNumber, seed: level.seed } : undefined} best={random ? undefined : bestInfo ?? undefined} nextLabel={daily ? 'Back to menu' : undefined} streak={daily ? dayStreak : undefined} seconds={snap.elapsed} lost={snap.lost} allowedLoss={snap.allowedLoss} total={snap.total} random={random} onNext={nextLevel} onRetry={restart} onMenu={toMenu} />}
+          {snap?.status === 'won' && <CompletedOverlay levelNumber={level?.levelNumber} challenge={level ? { level: level.levelNumber, seed: level.seed } : undefined} best={random ? undefined : bestInfo ?? undefined} nextLabel={daily || weekly ? 'Back to menu' : undefined} streak={daily ? dayStreak : undefined} seconds={snap.elapsed} lost={snap.lost} allowedLoss={snap.allowedLoss} total={snap.total} random={random} onNext={nextLevel} onRetry={restart} onMenu={toMenu} />}
         </div>
       )}
     </>

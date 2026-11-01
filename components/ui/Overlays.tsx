@@ -13,11 +13,12 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function PauseOverlay({ onResume, onRestart, onMenu }: { onResume: () => void; onRestart: () => void; onMenu: () => void }) {
+export function PauseOverlay({ practice, onPractice, onResume, onRestart, onMenu }: { practice?: boolean; onPractice?: () => void; onResume: () => void; onRestart: () => void; onMenu: () => void }) {
   return (
     <Card title="Paused">
       <button className="btn primary big" autoFocus onClick={onResume}>Resume</button>
       <button className="btn big" onClick={onRestart}>Restart level</button>
+      {onPractice && <button className="btn" onClick={onPractice}>{practice ? 'Leave practice' : 'Practice (no losses)'}</button>}
       <button className="btn" onClick={onMenu}>Main menu</button>
     </Card>
   );
@@ -29,6 +30,7 @@ export function FailedOverlay({ onSkip, collected, required, lost, lostTrap, los
     : `${lostVoid} ball${lostVoid === 1 ? '' : 's'} rolled off an open edge. Tilt gently near edges with a red glow.`;
   return (
     <Card title={required - collected <= 2 && required > collected ? `So close! ${required - collected} more needed` : 'Too many balls lost'}>
+      <div className="face" aria-hidden>{required - collected <= 2 ? '😮' : '😵'}</div>
       <div className="facts">
         <div><b>{collected}/{required}</b><small>home</small></div>
         <div><b>{lost}</b><small>lost</small></div>
@@ -59,6 +61,7 @@ export function CompletedOverlay({ levelNumber, challenge, best, nextLabel, stre
   return (
     <Card title="Level complete">
       <div className="confetti" aria-hidden>{Array.from({ length: 24 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#6ff5f7', '#ffd75e', '#ff6fc6', '#5dffb0'][i % 4], animationDelay: `${(i % 8) * 0.07}s`, animationDuration: `${1.4 + (i % 5) * 0.2}s` }} />)}</div>
+      <div className="face" aria-hidden>{stars === 3 ? '🤩' : stars === 2 ? '😄' : '🙂'}</div>
       <div className="stars" aria-label={`${stars} of 3 stars`}>
         {[1, 2, 3].map((n) => <span key={n} className={n <= stars ? 'on' : ''} aria-hidden>★</span>)}
       </div>

@@ -87,6 +87,12 @@ function TrayMesh({ tray, level, theme }: Props) {
   const matsRef = useRef(mats);
   useEffect(() => { matsRef.current = mats; }, [mats]);
   const hasGoal = tray.holes.some((h) => h.kind === 'goal');
+  const flash = useRef(0);
+  useEffect(() => {
+    const on = () => { flash.current = 1; };
+    window.addEventListener('pb-cup', on);
+    return () => window.removeEventListener('pb-cup', on);
+  }, []);
   const magnets = useRef<Array<THREE.Group | null>>([]);
   const magnetList = useMemo(() => tray.obstacles.filter((q): q is Extract<typeof q, { kind: 'magnet' }> => q.kind === 'magnet'), [tray]);
   const hasBumper = tray.obstacles.some((o) => o.kind === 'bumper');
@@ -94,7 +100,8 @@ function TrayMesh({ tray, level, theme }: Props) {
   useFrame(({ clock }) => {
     const s = Math.sin(clock.elapsedTime * 3);
     if (hasGoal) {
-      matsRef.current.goal.emissiveIntensity = 0.9 + 0.4 * s;
+      flash.current *= 0.92;
+      matsRef.current.goal.emissiveIntensity = 0.9 + 0.4 * s + flash.current * 2.2;
       matsRef.current.beam.opacity = 0.3 + 0.1 * s;
     }
     // Magnet rings breathe in (pull) or out (push) so their reach is visible.
@@ -195,6 +202,22 @@ function TrayMesh({ tray, level, theme }: Props) {
             </group>
           );
         }
+        if (o.kind === 'flap') {
+          return (
+            <group key={o.id} position={[o.x - tray.cx, PLATE_T / 2, o.z - tray.cz]} rotation={[0, Math.atan2(-o.dz, o.dx), 0]}>
+              <mesh position={[0, level.wallHeight * 0.18, 0]}>
+                <boxGeometry args={[0.12, level.wallHeight * 0.36, (o.dx ? o.hz : o.hx) * 2]} />
+                <meshStandardMaterial color="#7affc9" emissive="#18e0a0" emissiveIntensity={0.5} transparent opacity={0.55} />
+              </mesh>
+              {[-0.5, 0.5].map((f) => (
+                <mesh key={f} position={[0.3, 0.02, f * (o.dx ? o.hz : o.hx) * 1.1]} rotation={[0, 0, -Math.PI / 2]}>
+                  <coneGeometry args={[0.2, 0.34, 3]} />
+                  <meshBasicMaterial color="#18e0a0" toneMapped={false} />
+                </mesh>
+              ))}
+            </group>
+          );
+        }
         if (o.kind === 'magnet') {
           const c = o.push > 0 ? '#9b5cff' : '#ff8a3d';
           return (
@@ -272,6 +295,11 @@ function TrayMesh({ tray, level, theme }: Props) {
             <mesh position={pos} rotation={[-Math.PI / 2, 0, 0]} material={goal ? mats.goal : mats.trap}>
               <ringGeometry args={[h.r, h.r + (goal ? 0.16 : 0.09), 48]} />
             </mesh>
+            {!goal && [Math.PI / 4, -Math.PI / 4].map((a) => (
+              <mesh key={a} position={[pos[0], pos[1] + 0.006, pos[2]]} rotation={[-Math.PI / 2, 0, a]} material={mats.trap}>
+                <planeGeometry args={[h.r * 2.7, 0.07]} />
+              </mesh>
+            ))}
             {goal && (
               <>
                 {/* Ring in the colour of the ball size this hole is made for. */}

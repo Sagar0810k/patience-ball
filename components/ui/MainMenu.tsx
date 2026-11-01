@@ -9,11 +9,13 @@ interface Props {
   onSettings: () => void;
   onTutorial: () => void;
   onDaily: () => void;
-  daily: { done: boolean; streak: number };
+  daily: { done: boolean; streak: number; weeklyDone: boolean };
+  onWeekly: () => void;
+  onInstall?: () => void;
   ready: boolean;
 }
 
-export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, onDaily, daily, ready }: Props) {
+export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, onDaily, daily, onWeekly, onInstall, ready }: Props) {
   return (
     <main className="menu">
       <span className="orb a" aria-hidden />
@@ -38,10 +40,12 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
         <button className={`btn daily${daily.done ? ' done' : ''}`} onClick={onDaily} disabled={!ready}>
           {daily.done ? '✓ Daily done' : '🔥 Daily challenge'}{daily.streak > 0 && <small> · {daily.streak}-day streak</small>}
         </button>
+        <button className={`btn daily${daily.weeklyDone ? ' done' : ''}`} onClick={onWeekly} disabled={!ready}>{daily.weeklyDone ? '✓ Weekly done' : '🏆 Weekly challenge · hard'}</button>
         <div className="row2">
           <button className="btn" onClick={onLevels} disabled={!ready}>Levels</button>
           <button className="btn" onClick={onRandom} disabled={!ready}>Random</button>
         </div>
+        {onInstall && <button className="btn ghost" onClick={onInstall}>📲 Install app</button>}
         <div className="row2">
           <button className="btn ghost" onClick={onTutorial} disabled={!ready}>🎓 Tutorial</button>
           <button className="btn ghost" onClick={onSettings}>⚙ Settings</button>

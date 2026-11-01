@@ -179,7 +179,7 @@ function build(levelNumber: number, seed: number): Level | null {
     }
 
     // Decoys: red holes appear at random spots within a short radius of the green holes.
-    if (levelNumber >= 6 && t.holes.some((h) => h.kind === 'goal')) {
+    if (levelNumber >= 6 && !diff.relaxed && t.holes.some((h) => h.kind === 'goal')) {
       const goals = t.holes.filter((h) => h.kind === 'goal').sort(() => rng.float() - 0.5);
       let near = Math.min(goals.length + 1, 1 + Math.floor((levelNumber - 6) / 6), 3);
       for (let gi = 0; near > 0 && gi < goals.length * 2; gi++) {
@@ -204,16 +204,18 @@ function build(levelNumber: number, seed: number): Level | null {
 
     // Obstacles: pegs from the start, then walls, boost pads and sweepers as levels get harder.
     const boss = diff.tier === 'boss';
-    const kinds: Array<Obstacle['kind'] | 'barrier' | 'doorwall'> = ['peg'];
+    const kinds: Array<Obstacle['kind'] | 'barrier' | 'doorwall' | 'slotwall' | 'pinball'> = ['peg'];
     if (boss) kinds.push('bar'); // lone bars are rare: too many borders make it easy
     const ok = (key: string) => has(key, levelNumber);
     if (ok('patch-ice') || ok('patch-rough') || ok('patch-bouncy')) kinds.push('patch');
-    for (const k2 of ['bumper', 'barrier', 'magnet', 'filter', 'doorwall', 'spinner', 'mud', 'gate', 'block', 'sweeper', 'portal', 'boost'] as const) if (ok(k2)) kinds.push(k2);
+    if (ok('slotwall')) kinds.push('slotwall');
+    if (ok('pinball')) kinds.push('pinball', 'pinball'); // twice as likely: it is a set piece and often cannot fit
+    for (const k2 of ['bumper', 'barrier', 'magnet', 'filter', 'doorwall', 'spinner', 'mud', 'gate', 'block', 'sweeper', 'portal', 'boost', 'flap'] as const) if (ok(k2)) kinds.push(k2);
     const pad = maxR * 2.7;
     const taken = t.holes.map((h) => ({ x: h.x, z: h.z, ex: h.r, ez: h.r }));
     const want = diff.obstacles > 0 ? rng.int(Math.floor(diff.obstacles / 2), diff.obstacles) : 0;
     // Try a spot for an obstacle; on success it is placed (x, z set) but not yet recorded.
-    const fits = (o: Obstacle, near?: { x: number; z: number; r: number }) => {
+    const fits = (o: Obstacle, near?: { x: number; z: number; r: number }, anyLane = false) => {
       const [ex, ez] = obstacleExtent(o);
       const gap = o.kind === 'patch' ? 0.6 : pad; // flat patches can sit closer to things than tall obstacles
       if (o.kind === 'block') {
@@ -239,7 +241,7 @@ function build(levelNumber: number, seed: number): Level | null {
       if (i === 0 && o.x + ex > spawnRect.x0 - 0.6 && o.x - ex < spawnRect.x1 + 0.6 && o.z + ez > spawnRect.z0 - 0.6 && o.z - ez < spawnRect.z1 + 0.6) return false;
       if (i > 0 && Math.hypot(o.x - entry.x, o.z - entry.z) < 3 + br) return false;
       if (t.exit && nearExit(t, o.x, o.z, br)) return false;
-      if (o.kind !== 'mud' && o.kind !== 'patch' && o.kind !== 'magnet' && lane && segDist(o.x, o.z, entry.x, entry.z, lane.x, lane.z) < laneHalf + br) return false;
+      if (o.kind !== 'mud' && o.kind !== 'patch' && o.kind !== 'magnet' && !anyLane && lane && segDist(o.x, o.z, entry.x, entry.z, lane.x, lane.z) < laneHalf + br) return false;
       return true;
     };
     const commit = (o: Obstacle) => {
@@ -287,7 +289,7 @@ function build(levelNumber: number, seed: number): Level | null {
       return true;
     };
     // A timed door: a full-width wall across the way through that is only open for a fixed time in every cycle.
-    const tryDoor = () => {
+    const tryDoor = (slots = 1) => {
       if (!lane) return false;
       const dx = lane.x - entry.x, dz = lane.z - entry.z;
       const alongX = Math.abs(dx) >= Math.abs(dz);
@@ -303,7 +305,17 @@ function build(levelNumber: number, seed: number): Level | null {
       if (t.holes.some((h) => Math.abs((alongX ? h.x : h.z) - wpos) < h.r + 0.7)) return false;
       if (taken.some((b) => Math.abs(wpos - (alongX ? b.x : b.z)) < (alongX ? b.ex : b.ez) + 0.8)) return false;
       if (t.exit && nearExit(t, alongX ? wpos : (lo + hi) / 2, alongX ? (lo + hi) / 2 : wpos, 1)) return false;
-      const c = (lo + hi) / 2, half = (hi - lo) / 2;
+      const c = (lo + hi) / 2, half = (hi - lo) / 2 - 0.02; // a hair inside the walls
+      if (slots > 1) {
+        // Slot wall: the wall is split into lanes whose doors open one after another, so a different lane is open every few seconds.
+        const open = round(rng.range(2.2, 2.8)), closed = round(open * (slots - 1)), base = round(rng.range(0, 6)), seg = (hi - lo) / slots;
+        for (let k = 0; k < slots; k++) {
+          const sc = lo + seg * (k + 0.5), sh = seg / 2 - 0.02;
+          commit({ id, kind: 'door', slot: true, x: round(alongX ? wpos : sc, 1000), z: round(alongX ? sc : wpos, 1000), hx: alongX ? 0.2 : round(sh, 1000), hz: alongX ? round(sh, 1000) : 0.2, open, closed, offset: round(base + k * open, 100) });
+          id++;
+        }
+        return true;
+      }
       const o: Obstacle = { id, kind: 'door', x: round(alongX ? wpos : c, 1000), z: round(alongX ? c : wpos, 1000), hx: alongX ? 0.2 : round(half, 1000), hz: alongX ? round(half, 1000) : 0.2, open: round(rng.range(3.2, 4.4)), closed: round(rng.range(2.6, 4)), offset: round(rng.range(0, 6)) };
       commit(o);
       id++;
@@ -311,7 +323,7 @@ function build(levelNumber: number, seed: number): Level | null {
     };
     // Guards: a few obstacles close around each green hole, so the last stretch is never a free roll.
     if (levelNumber >= 4) {
-      const guardKinds = kinds.filter((x) => x !== 'barrier' && x !== 'doorwall' && x !== 'portal' && x !== 'block' && x !== 'bar');
+      const guardKinds = kinds.filter((x) => x !== 'barrier' && x !== 'doorwall' && x !== 'slotwall' && x !== 'pinball' && x !== 'portal' && x !== 'block' && x !== 'bar');
       for (const g of t.holes.filter((h) => h.kind === 'goal')) {
         const n = rng.int(1, levelNumber >= 8 ? 3 : 2);
         for (let q = 0, placed = 0; q < 40 && placed < n; q++) {
@@ -322,6 +334,26 @@ function build(levelNumber: number, seed: number): Level | null {
     }
     for (let q = 0; q < want; q++) {
       const kind = kinds[rng.int(0, kinds.length - 1)];
+      if (kind === 'slotwall') {
+        for (let attempt = 0; attempt < 20 && !tryDoor(3); attempt++);
+        continue;
+      }
+      if (kind === 'pinball') {
+        // Set piece: a diamond of five bumpers that ping balls around.
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const cluster: Obstacle[] = [];
+          const sp = 1.15;
+          const area = makeObstacle('bumper', rng, id, levelNumber, k) as Extract<Obstacle, { kind: 'bumper' }>;
+          area.r = sp + 0.4; // reserve the whole diamond's footprint
+          if (!fits(area, undefined, true)) continue; // bumpers only deflect, so the diamond may sit on the main lane
+          const cx0 = area.x, cz0 = area.z;
+          [[0, 0], [sp, sp], [-sp, sp], [sp, -sp], [-sp, -sp]].forEach(([ox, oz], q) => cluster.push({ id: id + q, kind: 'bumper', x: round(cx0 + ox, 1000), z: round(cz0 + oz, 1000), r: 0.36 }));
+          cluster.forEach((c2) => commit(c2));
+          id += cluster.length;
+          break;
+        }
+        continue;
+      }
       if (kind === 'doorwall') {
         for (let attempt = 0; attempt < 20 && !tryDoor(); attempt++);
         continue;
@@ -412,6 +444,12 @@ function makeObstacle(kind: Obstacle['kind'], rng: Rng, id: number, levelNumber:
     case 'bumper': return { id, kind, x: 0, z: 0, r: round(rng.range(0.35, 0.5)) };
     case 'mud': return { id, kind, x: 0, z: 0, hx: round(rng.range(1.0, 1.8)), hz: round(rng.range(0.8, 1.4)) };
     case 'spinner': return { id, kind, x: 0, z: 0, len: round(rng.range(0.9, 1.5)), speed: round((flip ? 1 : -1) * rng.range(1.2, 2.2)), phase: round(rng.range(0, 6.28)) };
+    case 'flap': {
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      const [dx, dz] = dirs[rng.int(0, 3)];
+      const len = round(rng.range(1.4, 2.4));
+      return { id, kind: 'flap', x: 0, z: 0, hx: dx ? 0.12 : len, hz: dx ? len : 0.12, dx, dz };
+    }
     case 'magnet': return { id, kind, x: 0, z: 0, r: round(rng.range(1.9, 2.6)), push: rng.float() < 0.5 ? 1 : -1 };
     case 'gate': { const len = round(rng.range(1.2, 2.0)); return { id, kind, x: 0, z: 0, hx: flip ? len : 0.18, hz: flip ? 0.18 : len, speed: round(rng.range(0.8, 1.4)), phase: round(rng.range(0, 6.28)) }; }
     case 'portal': return { id, kind, x: 0, z: 0, r: 0.55, tx: 0, tz: 0, tone: 0 };
@@ -454,7 +492,7 @@ function fallbackLevel(levelNumber: number, seed: number): Level {
   const t0: Tray = { index: 0, cx: 0, cy: 0, cz: 0, w: 9, d: 9, holes: [], obstacles: [], surface: 'normal', open: [], exit: { side: '+x', from: -2.5, to: 2.5 } };
   const t1: Tray = {
     index: 1, cx: 5, cy: -2.6, cz: 0, w: 9, d: 9, exit: null, obstacles: [], surface: 'normal', open: [],
-    holes: [{ id: 0, kind: 'goal', x: 7, z: 0, r: 0.6 }, { id: 1, kind: 'trap', x: 6, z: 3, r: 0.4 }],
+    holes: [{ id: 0, kind: 'goal', x: 7, z: 0, r: 0.42, cls: 0 }, { id: 1, kind: 'trap', x: 6, z: 3, r: 0.37 }],
   };
   const balls = Array.from({ length: 10 }, () => ({ radius: 0.3, cls: 0 }));
   return {

@@ -1,5 +1,5 @@
 // App-shell service worker. Bump VERSION to drop old caches on release.
-const VERSION = 'pb-v1';
+const VERSION = 'pb-v2';
 const SHELL = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (e) => {

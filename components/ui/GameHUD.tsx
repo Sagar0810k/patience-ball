@@ -23,6 +23,8 @@ interface Props {
   onFlat: () => void;
   onSound: () => void;
   onPhoneTilt: () => void;
+  onHelp: () => void;
+  readTilt: () => [number, number];
 }
 
 /** A strip you drag sideways to turn the view (and up or down to change the height of the camera). */
@@ -49,6 +51,24 @@ function RotatePad({ onOrbit }: { onOrbit: (dAz: number, dEl: number) => void })
   );
 }
 
+/** A small dial showing which way (and how far) the board is tipped. Updates itself every frame without re-rendering. */
+function TiltDial({ readTilt }: { readTilt: () => [number, number] }) {
+  const dot = useRef<HTMLElement>(null);
+  const read = useRef(readTilt);
+  useEffect(() => { read.current = readTilt; }, [readTilt]);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const [x, z] = read.current();
+      if (dot.current) dot.current.style.transform = `translate(${x * 15}px, ${z * 15}px)`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return <div className="dial" aria-hidden title="Board tilt"><i ref={dot} /></div>;
+}
+
 const COMBO = ['', '', 'Double!', 'Triple!', 'Quad!', 'Awesome!', 'Amazing!', 'Unstoppable!'];
 
 /** Floating combo text when balls drop in quick succession (fired by the scene as a window event). */
@@ -68,7 +88,7 @@ function ComboPop() {
   return <div key={c.id} className="combo" aria-hidden>{COMBO[Math.min(c.n, COMBO.length - 1)]} <small>×{c.n}</small></div>;
 }
 
-export default function GameHUD({ label, tier, classCount, snap, attempt, firstLevel, sound, sensitivity, onSensitivity, canTiltPhone, phoneTilt, onPause, onRestart, onCamera, onOrbit, onFlat, onSound, onPhoneTilt }: Props) {
+export default function GameHUD({ label, tier, classCount, snap, attempt, firstLevel, sound, sensitivity, onSensitivity, canTiltPhone, phoneTilt, onPause, onRestart, onCamera, onOrbit, onFlat, onSound, onPhoneTilt, onHelp, readTilt }: Props) {
   const pct = snap ? Math.min(100, (snap.collected / snap.required) * 100) : 0;
   return (
     <>
@@ -91,7 +111,7 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
                   <span key={`${j}-${c.lost}`} className={`cls${c.collected >= c.need ? ' done' : ''}${c.lost > 0 ? ' hit' : ''}`} style={{ ['--c' as string]: CLASS_ACCENT[colorSlot({ tier, classRadii: new Array(classCount) }, j)] }}>
                     <i className="dot" style={{ width: 10 + j * 4, height: 10 + j * 4 }} aria-hidden />
                     <b>{c.collected}/{c.need}</b>
-                    {Array.from({ length: c.allowed }, (_, p) => <u key={p} className={p < spare ? '' : 'gone'} aria-hidden />)}
+                    {Array.from({ length: Math.min(c.allowed, 8) }, (_, p) => <u key={p} className={p < spare ? '' : 'gone'} aria-hidden />)}{c.allowed > 8 && <small className="more">+{c.allowed - 8}</small>}
                   </span>
                 );
               })}
@@ -119,6 +139,7 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
         <button className="btn" onClick={onFlat}>Level</button>
         <button className="btn" onClick={onRestart}>Restart</button>
         <button className="btn icon" onClick={onSound} aria-pressed={sound} aria-label={sound ? 'Mute sound' : 'Turn sound on'}>{sound ? '🔊' : '🔇'}</button>
+        <button className="btn icon" onClick={onHelp} aria-label="What are the obstacles on this level?">?</button>
         {canTiltPhone && (
           <button className="btn" aria-pressed={phoneTilt} onClick={onPhoneTilt}>
             {phoneTilt ? '📱 Gyro on' : '📱 Gyro'}
@@ -126,6 +147,7 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
         )}
       </footer>
       <ComboPop />
+      <TiltDial readTilt={readTilt} />
       <div className="sr-only" aria-live="polite">
         {snap ? `${snap.collected} of ${snap.required} balls home, ${snap.lost} lost` : ''}
       </div>

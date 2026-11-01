@@ -128,7 +128,7 @@ export class Simulation {
         });
       }
       for (const o of t.obstacles) {
-        if (o.kind !== 'boost' && o.kind !== 'mud' && o.kind !== 'bumper' && o.kind !== 'portal' && o.kind !== 'patch' && o.kind !== 'magnet') continue;
+        if (o.kind !== 'boost' && o.kind !== 'mud' && o.kind !== 'bumper' && o.kind !== 'portal' && o.kind !== 'patch' && o.kind !== 'magnet' && o.kind !== 'flap') continue;
         this.status_.forEach((st, i) => {
           if (st !== 'active' || this.hidden[i]) return;
           const b = this.phys.balls[i];
@@ -145,6 +145,18 @@ export class Simulation {
             b.applyImpulse({ x: (dx / d) * m, y: 0, z: (dz / d) * m }, true);
             this.kick[i] = this.elapsed;
             this.onEvent('bump');
+            return;
+          }
+          if (o.kind === 'flap') {
+            // One-way: a ball at the flap that is rolling against its direction is turned back.
+            const ax = p.x - o.x, az = p.z - o.z;
+            const along = ax * o.dx + az * o.dz;
+            const lat = Math.abs(-ax * o.dz + az * o.dx);
+            const half = o.dx ? o.hz : o.hx;
+            if (lat > half + r || Math.abs(along) > r + 0.2 || along < -0.02) return;
+            const v = b.linvel();
+            const vd = v.x * o.dx + v.z * o.dz;
+            if (vd < -0.05) { const m = b.mass() * -vd * 1.6; b.applyImpulse({ x: o.dx * m, y: 0, z: o.dz * m }, true); }
             return;
           }
           if (o.kind === 'magnet') {

@@ -51,7 +51,7 @@ export default function SettingsPanel({ save, onSettings, canGyro, onGyro, onRep
         <h2>Settings</h2>
       </div>
       {(
-        [['sound', 'Sound'], ['music', 'Music'], ['haptics', 'Vibration'], ['reducedMotion', 'Reduce motion']] as const
+        [['sound', 'Sound'], ['music', 'Music'], ['assist', 'Gentle tilt (easier control)'], ['leftHand', 'Left-handed layout'], ['contrast', 'High contrast'], ['haptics', 'Vibration'], ['reducedMotion', 'Reduce motion']] as const
       ).map(([k, label]) => (
         <label key={k} className="row">
           <span>{label}</span>

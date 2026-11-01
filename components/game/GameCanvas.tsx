@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState, type MutableRefObject, type PointerEvent, type WheelEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { PerformanceMonitor } from '@react-three/drei';
+import FpsGovernor from './FpsGovernor';
 import type { GameSettings, GameSnapshot, Level } from '@/lib/types';
 import GameScene, { type GameController } from './GameScene';
 
@@ -97,7 +97,7 @@ export default function GameCanvas(props: Props) {
         camera={{ fov: 38, near: 0.5, far: 400, position: [0, 20, 30] }}
         gl={{ alpha: true, antialias: dpr < 1.5, powerPreference: 'high-performance' }}
       >
-        <PerformanceMonitor
+        <FpsGovernor
           onDecline={() => {
             // Shed load step by step: lower resolution first, then shadows.
             declines.current++;

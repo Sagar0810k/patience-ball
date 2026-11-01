@@ -304,3 +304,15 @@ html, body { background: radial-gradient(120% 60% at 50% 0%, #3a2780 0%, #1d1148
 .badge { display: grid; justify-items: center; gap: 2px; width: 64px; padding: 8px 2px; border-radius: 14px; border: 1px dashed var(--line); font-size: 1.4rem; opacity: 0.5; }
 .badge.got { opacity: 1; border-style: solid; background: rgba(255, 255, 255, 0.07); }
 .badge small { font-size: 0.6rem; color: var(--muted); text-align: center; line-height: 1.1; }
+.lefty .hud-bottom { flex-direction: row-reverse; }
+.cls .more { font-size: 0.65rem; opacity: 0.8; margin-left: 2px; }
+.face { font-size: 3rem; line-height: 1; animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.dial { position: absolute; right: calc(14px + var(--safe-r)); bottom: 215px; width: 44px; height: 44px; border-radius: 50%; background: rgba(20, 11, 52, 0.55); border: 1px solid var(--line); backdrop-filter: blur(4px); pointer-events: none; display: grid; place-items: center; }
+.dial::before, .dial::after { content: ''; position: absolute; background: rgba(255, 255, 255, 0.18); }
+.dial::before { width: 1px; height: 28px; } .dial::after { height: 1px; width: 28px; }
+.dial i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); will-change: transform; }
+.lefty .dial { right: auto; left: calc(14px + var(--safe-l)); }
+.hc { --muted: #e6dcff; --line: rgba(255, 255, 255, 0.45); --glass: rgba(10, 5, 30, 0.85); }
+.hc .btn, .hc .chip, .hc .cls, .hc .card, .hc .guide, .hc .level-cell { border-width: 2px; }
+.hc .hud-top, .hc .hud-bottom .btn { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+.hc canvas { filter: contrast(1.12) saturate(1.1); }

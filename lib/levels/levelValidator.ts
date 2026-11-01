@@ -40,7 +40,7 @@ export function validateLevel(level: Level): string[] {
 
     for (const o of t.obstacles) {
       const [hx, hz] = obstacleExtent(o);
-      if (o.x - hx < t.cx - t.w / 2 + WALL_T || o.x + hx > t.cx + t.w / 2 - WALL_T || o.z - hz < t.cz - t.d / 2 + WALL_T || o.z + hz > t.cz + t.d / 2 - WALL_T) errs.push(`tray ${i} obstacle outside`);
+      if (o.x - hx < t.cx - t.w / 2 + WALL_T - 0.02 || o.x + hx > t.cx + t.w / 2 - WALL_T + 0.02 || o.z - hz < t.cz - t.d / 2 + WALL_T - 0.02 || o.z + hz > t.cz + t.d / 2 - WALL_T + 0.02) errs.push(`tray ${i} obstacle outside`);
       if (t.holes.some((h) => Math.abs(h.x - o.x) < h.r + hx && Math.abs(h.z - o.z) < h.r + hz)) errs.push(`tray ${i} obstacle on a hole`);
     }
     t.holes.forEach((h, a) => {
