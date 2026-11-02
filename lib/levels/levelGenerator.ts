@@ -179,9 +179,9 @@ function build(levelNumber: number, seed: number): Level | null {
     }
 
     // Decoys: red holes appear at random spots within a short radius of the green holes.
-    if (levelNumber >= 6 && !diff.relaxed && t.holes.some((h) => h.kind === 'goal')) {
+    if (levelNumber >= 12 && !diff.relaxed && t.holes.some((h) => h.kind === 'goal')) {
       const goals = t.holes.filter((h) => h.kind === 'goal').sort(() => rng.float() - 0.5);
-      let near = Math.min(goals.length + 1, 1 + Math.floor((levelNumber - 6) / 6), 3);
+      let near = Math.min(goals.length + 1, 1 + Math.floor((levelNumber - 12) / 8), 3);
       for (let gi = 0; near > 0 && gi < goals.length * 2; gi++) {
         const gh = goals[gi % goals.length];
         for (let attempt = 0; attempt < 30; attempt++) {
@@ -322,10 +322,10 @@ function build(levelNumber: number, seed: number): Level | null {
       return true;
     };
     // Guards: a few obstacles close around each green hole, so the last stretch is never a free roll.
-    if (levelNumber >= 4) {
+    if (levelNumber >= 8) {
       const guardKinds = kinds.filter((x) => x !== 'barrier' && x !== 'doorwall' && x !== 'slotwall' && x !== 'pinball' && x !== 'portal' && x !== 'block' && x !== 'bar');
       for (const g of t.holes.filter((h) => h.kind === 'goal')) {
-        const n = rng.int(1, levelNumber >= 8 ? 3 : 2);
+        const n = rng.int(1, levelNumber >= 31 ? 3 : levelNumber >= 21 ? 2 : 1);
         for (let q = 0, placed = 0; q < 40 && placed < n; q++) {
           const o = makeObstacle(guardKinds[rng.int(0, guardKinds.length - 1)] as Obstacle['kind'], rng, id, levelNumber, k);
           if (fits(o, g) && Math.hypot(o.x - g.x, o.z - g.z) < g.r + 4) { commit(o); id++; placed++; }

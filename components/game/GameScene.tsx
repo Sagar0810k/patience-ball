@@ -36,6 +36,8 @@ export interface GameController {
   getPointer(): [number, number];
   /** Total tilt in [-1, 1] per axis, from drag, keys and gyroscope. */
   getTilt(): [number, number];
+  /** Spend an ability inside the running level; false when it cannot be used now. */
+  useAbility(key: 'extra' | 'home' | 'freeze' | 'slow'): boolean;
   setKeys(x: number, z: number): void;
   setDevice(x: number, z: number): void;
   resetCamera(): void;
@@ -67,6 +69,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
   const marbles = useRef<THREE.InstancedMesh>(null);
   const streak = useRef(0);
   const lastCup = useRef(0);
+  const slowLeft = useRef(0); // seconds of slow motion left (ability)
   const trail = useRef<THREE.InstancedMesh>(null);
   const trailLife = useRef(new Float32Array(TRAIL));
   const trailPos = useRef(new Float32Array(TRAIL * 4)); // x, y, z, radius
@@ -140,6 +143,15 @@ export default function GameScene({ level, attempt, paused, settings, controller
       setPointer: (x, z) => { input.current.ptr = [x, z]; },
       getPointer: () => [input.current.ptr[0], input.current.ptr[1]],
       getTilt: () => { const i = input.current; return [Math.max(-1, Math.min(1, i.ptr[0] + i.key[0] + i.dev[0])), Math.max(-1, Math.min(1, i.ptr[1] + i.key[1] + i.dev[1]))]; },
+      useAbility: (key) => {
+        const sim = simRef.current;
+        if (!sim || sim.status !== 'playing') return false;
+        if (key === 'extra') return sim.addReserve();
+        if (key === 'home') return sim.sendHome();
+        if (key === 'freeze') { sim.freeze = 8; return true; }
+        slowLeft.current = 8;
+        return true;
+      },
       setKeys: (x, z) => { input.current.key = [x, z]; },
       setDevice: (x, z) => { input.current.dev = [x, z]; },
       resetCamera: () => { view.current.target = defaultView(); },
@@ -184,7 +196,8 @@ export default function GameScene({ level, attempt, paused, settings, controller
       sim.setInput(x * Math.cos(a) + z * Math.sin(a), -x * Math.sin(a) + z * Math.cos(a));
     }
     if (sim && !paused) {
-      acc.current += Math.min(dt, 1 / 30) * (lastBallNear(sim, level) ? 0.45 : 1); // slow-motion as the winning ball reaches a goal; // below 30 fps the game slows down instead of piling up physics work
+      if (slowLeft.current > 0) slowLeft.current = Math.max(0, slowLeft.current - dt);
+      acc.current += Math.min(dt, 1 / 30) * (slowLeft.current > 0 ? 0.5 : 1) * (lastBallNear(sim, level) ? 0.45 : 1); // slow-motion as the winning ball reaches a goal; // below 30 fps the game slows down instead of piling up physics work
       while (acc.current >= FIXED_DT) {
         sim.step();
         acc.current -= FIXED_DT;
@@ -206,7 +219,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
         m.quaternion.set(q.x, q.y, q.z, q.w);
         if (s.o.kind === 'door') {
           // Telegraph: the door flashes in the last second before it closes and before it opens, so the timing is readable.
-          const d = s.o, P = d.open + d.closed, ph = (((sim.elapsed + d.offset) % P) + P) % P;
+          const d = s.o, P = d.open + d.closed, ph = (((sim.moverClock + d.offset) % P) + P) % P;
           const isOpen = ph < d.open;
           if (doorOpen.current[d.id] !== undefined && doorOpen.current[d.id] !== isOpen) sound.door(isOpen);
           doorOpen.current[d.id] = isOpen;
@@ -223,7 +236,7 @@ export default function GameScene({ level, attempt, paused, settings, controller
         }
         if (s.o.kind === 'gate') {
           // Telegraph: the gate pulses while it is changing direction (about to rise or sink).
-          const g = s.o, wave = Math.sin(g.speed * sim.elapsed + g.phase);
+          const g = s.o, wave = Math.sin(g.speed * sim.moverClock + g.phase);
           const mat = (m.children[0] as THREE.Mesh | undefined)?.material as THREE.MeshStandardMaterial | undefined;
           if (mat) { mat.emissive.set('#ff7a00'); mat.emissiveIntensity = Math.abs(wave) < 0.3 ? 0.6 + 0.6 * Math.sin(sim.elapsed * 14) : 0; }
         }

@@ -5,7 +5,7 @@ import { PLATE_T, spawnPositions } from '../levels/geometry';
 import { FIXED_DT, GRAVITY, PhysicsWorld } from './physicsWorld';
 
 export type SimEvent = 'collected' | 'lost' | 'won' | 'failed' | 'bump' | 'portal';
-export type BallStatus = 'active' | 'collected' | 'lost';
+export type BallStatus = 'active' | 'collected' | 'lost' | 'reserve';
 
 const FALL_BAND = 0.6; // how far below a plate a ball must be (and no further) to count as having dropped through
 const TILT_RESPONSE = 7; // 1/s, how quickly the board follows the input
@@ -26,6 +26,10 @@ export class Simulation {
   readonly classCollected: number[];
   readonly classLost: number[];
   elapsed = 0;
+  /** Clock that drives the moving obstacles; it stops while they are frozen. */
+  moverClock = 0;
+  freeze = 0;
+  private spawn: Array<{ x: number; y: number; z: number }>;
   /** Why and where each ball was lost; handy for debugging level design. */
   readonly lossLog: Array<{ ball: number; tray: number; how: 'trap' | 'void'; t: number; at?: string }> = [];
   onEvent: (e: SimEvent) => void = () => {};
@@ -44,9 +48,12 @@ export class Simulation {
   constructor(R: typeof RAPIER, level: Level) {
     this.level = level;
     this.phys = new PhysicsWorld(R, level);
-    spawnPositions(level).forEach((p, i) => this.phys.addBall(p.x, p.y, p.z, level.balls[i].radius, level.balls[i].cls));
-    this.status_ = level.balls.map(() => 'active');
-    this.hidden = level.balls.map(() => false);
+    this.spawn = spawnPositions(level);
+    this.spawn.forEach((p, i) => this.phys.addBall(p.x, p.y, p.z, level.balls[i].radius, level.balls[i].cls));
+    const firstReserve = level.balls.length - (level.reserve ?? 0);
+    this.status_ = level.balls.map((_, i) => (i >= firstReserve ? 'reserve' : 'active'));
+    this.hidden = level.balls.map((_, i) => i >= firstReserve);
+    this.hidden.forEach((h, i) => { if (h) this.phys.balls[i].setEnabled(false); });
     this.kick = level.balls.map(() => -9);
     this.tele = level.balls.map(() => -9);
     this.inPortal = level.balls.map(() => false);
@@ -62,6 +69,38 @@ export class Simulation {
     const k = m > 1 ? 1 / m : 1;
     this.tx = x * k;
     this.tz = z * k;
+  }
+
+  /** Ability: bring in one spare ball from the start area. */
+  addReserve(): boolean {
+    const i = this.status_.indexOf('reserve');
+    if (i < 0 || this.status !== 'playing') return false;
+    const p = this.spawn[i], b = this.phys.balls[i];
+    this.status_[i] = 'active';
+    this.hidden[i] = false;
+    b.setEnabled(true);
+    b.setTranslation({ x: p.x, y: p.y + 1.2, z: p.z }, true);
+    b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    return true;
+  }
+
+  /** Ability: one ball that is still needed goes straight into its hole. */
+  sendHome(): boolean {
+    if (this.status !== 'playing') return false;
+    const { classNeed } = this.level;
+    let best = -1, bestLeft = 0;
+    classNeed.forEach((n, j) => {
+      const left = n - this.classCollected[j];
+      if (left > bestLeft && this.status_.some((s, i) => s === 'active' && !this.hidden[i] && this.level.balls[i].cls === j)) { best = j; bestLeft = left; }
+    });
+    if (best < 0) return false;
+    const i = this.status_.findIndex((s, k) => s === 'active' && !this.hidden[k] && this.level.balls[k].cls === best);
+    this.status_[i] = 'collected';
+    this.collected++; this.classCollected[best]++;
+    this.phys.balls[i].setEnabled(false);
+    this.hidden[i] = true;
+    this.onEvent('collected');
+    return true;
   }
 
   isHidden(i: number) {
@@ -84,7 +123,8 @@ export class Simulation {
     this.sz += (this.tz - this.sz) * k;
     this.applyTilt();
     this.applyFields();
-    this.phys.step(this.elapsed);
+    this.phys.step(this.moverClock);
+    if (this.freeze > 0) this.freeze -= FIXED_DT; else this.moverClock += FIXED_DT;
     if (this.status !== 'playing') return;
     this.elapsed += FIXED_DT;
     this.classify();
@@ -261,12 +301,12 @@ export class Simulation {
   snapshot(): GameSnapshot {
     return {
       status: this.status,
-      total: this.level.balls.length,
+      total: this.level.balls.length - this.status_.filter((s) => s === 'reserve').length,
       collected: this.collected,
       lost: this.lost,
       required: this.level.required,
       allowedLoss: this.level.allowedLoss,
-      onBoard: this.level.balls.length - this.collected - this.lost,
+      onBoard: this.level.balls.length - this.status_.filter((s) => s === 'reserve').length - this.collected - this.lost,
       lostTrap: this.lossLog.filter((l) => l.how === 'trap').length,
       lostVoid: this.lossLog.filter((l) => l.how === 'void').length,
       elapsed: this.elapsed,

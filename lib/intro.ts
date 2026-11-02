@@ -1,7 +1,17 @@
-/** One new element per level: each key first appears on exactly one level, so every level teaches at most one new idea
+/** New elements arrive slowly, one at a time, a couple per world (10 levels): each key first appears on exactly one level, so every level teaches at most one new idea
  *  (peg is there from the start; lone bars only in boss levels). Boss levels use what has been unlocked so far. */
 export const INTRO: Record<string, number> = {
-  'patch-ice': 2, bumper: 3, ice: 4, open: 5, 'patch-rough': 6, boost: 7, barrier: 8, magnet: 9, sticky: 11, filter: 12, doorwall: 13,
-  conveyor: 14, spinner: 15, 'patch-bouncy': 16, mud: 17, gate: 18, bouncy: 19, block: 21, sweeper: 22, portal: 23, flap: 24, slotwall: 25, pinball: 26,
+  // World 1 (1-10): only pegs, then a bumper and a helpful boost pad.
+  bumper: 4, boost: 7,
+  // World 2 (11-20): still easy; slippery and rough patches, mud, and the first open edge.
+  'patch-ice': 12, open: 14, mud: 16, 'patch-rough': 18,
+  // World 3 (21-30)
+  barrier: 21, sticky: 23, magnet: 25, filter: 27, ice: 29,
+  // World 4 (31-40)
+  doorwall: 31, conveyor: 33, 'patch-bouncy': 35, spinner: 37, block: 39,
+  // World 5 (41-50)
+  gate: 41, bouncy: 43, sweeper: 45, portal: 47, flap: 49,
+  // World 6+
+  slotwall: 51, pinball: 56,
 };
 export const has = (key: string, level: number) => level >= (INTRO[key] ?? Infinity);

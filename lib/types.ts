@@ -83,6 +83,8 @@ export interface BallSpec {
 }
 
 export interface Level {
+  /** Trailing balls that start switched off; the Extra balls ability brings them in. */
+  reserve?: number;
   levelNumber: number;
   seed: number;
   theme: number;

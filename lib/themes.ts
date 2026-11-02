@@ -9,10 +9,10 @@ export interface Theme {
 // Cyan-to-navy trays over violet skies; one per level theme index.
 export const THEMES: Theme[] = [
   { top: '#d4a368', deep: '#a8703c', bgTop: '#12251e', bgBottom: '#2f5a48' }, // beech on green felt
-  { top: '#86aabf', deep: '#3f6580', bgTop: '#101b25', bgBottom: '#34546c' }, // blue felt
+  { top: '#8fb3a6', deep: '#466f63', bgTop: '#0f201c', bgBottom: '#2f5650' }, // teal felt
   { top: '#cc9078', deep: '#9a5c48', bgTop: '#26171a', bgBottom: '#6a4540' }, // clay
   { top: '#9bb97f', deep: '#5f8250', bgTop: '#131f17', bgBottom: '#40654a' }, // sage
-  { top: '#ab97c8', deep: '#6d5c98', bgTop: '#1b1730', bgBottom: '#4c4272' }, // lilac
+  { top: '#c9a0a0', deep: '#8f5c5c', bgTop: '#241a1a', bgBottom: '#5a4444' }, // rose
   { top: '#d9b95a', deep: '#a77f2c', bgTop: '#221b0e', bgBottom: '#665022' }, // mustard
 ];
 

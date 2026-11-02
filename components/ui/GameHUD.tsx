@@ -4,6 +4,7 @@ import type { GameSnapshot } from '@/lib/types';
 import { CLASS_ACCENT } from '@/lib/themes';
 import { colorSlot } from '@/lib/themes';
 import Icon from './Icons';
+import { ABILITIES, type AbilityKey } from '@/lib/abilities';
 
 interface Props {
   label: string;
@@ -26,6 +27,9 @@ interface Props {
   onPhoneTilt: () => void;
   onHelp: () => void;
   readTilt: () => [number, number];
+  stock: Record<AbilityKey, number>;
+  usedAbilities: AbilityKey[];
+  onAbility: (k: AbilityKey) => void;
 }
 
 /** A strip you drag sideways to turn the view (and up or down to change the height of the camera). */
@@ -89,7 +93,9 @@ function ComboPop() {
   return <div key={c.id} className="combo" aria-hidden>{COMBO[Math.min(c.n, COMBO.length - 1)]} <small>×{c.n}</small></div>;
 }
 
-export default function GameHUD({ label, tier, classCount, snap, attempt, firstLevel, sound, canTiltPhone, phoneTilt, onPause, onRestart, onCamera, onOrbit, onFlat, onSound, onPhoneTilt, onHelp, readTilt }: Props) {
+export default function GameHUD({ label, tier, classCount, snap, attempt, firstLevel, sound, canTiltPhone, phoneTilt, onPause, onRestart, onCamera, onOrbit, onFlat, onSound, onPhoneTilt, onHelp, readTilt, stock, usedAbilities, onAbility }: Props) {
+  const [menu, setMenu] = useState(false);
+  const total = (Object.keys(ABILITIES) as AbilityKey[]).reduce((n, k) => n + (usedAbilities.includes(k) ? 0 : stock[k]), 0);
   const [touched, setTouched] = useState(false);
   const [idle, setIdle] = useState(false);
   useEffect(() => {
@@ -128,6 +134,7 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
             </div>
           )}
         </div>
+        <button className="btn icon" onClick={onRestart} aria-label="Restart level"><Icon name="restart" /></button>
       </header>
       {tier !== 'normal' && (
         <div className={`banner ${tier}`} key={attempt} role="status">
@@ -136,17 +143,28 @@ export default function GameHUD({ label, tier, classCount, snap, attempt, firstL
       )}
       <footer className={`hud-bottom${idle ? ' quiet' : ''}`}>
         {!touched && <p className="hint" key={attempt}>
-          <span className="hand" aria-hidden><Icon name="tilt" size={16} /></span> {firstLevel ? 'Drag the board to tilt it (it stays tilted) · double-tap to level it' : 'Drag board: tilt · strip below: rotate view · double-tap: level'}
+          <span className="hand" aria-hidden><Icon name="tilt" size={16} /></span> {firstLevel ? 'Drag the board to tilt it · double-tap to level' : 'Drag the board to tilt it'}
         </p>}
         <div className="tools">
           <button className="btn icon" onClick={onCamera} aria-label="Reset view"><Icon name="view" /></button>
-          <button className="btn icon" onClick={onFlat} aria-label="Level the board"><Icon name="level" /></button>
           <RotatePad onOrbit={onOrbit} />
-          <button className="btn icon" onClick={onRestart} aria-label="Restart level"><Icon name="restart" /></button>
-          <button className="btn icon" onClick={onSound} aria-pressed={sound} aria-label={sound ? 'Mute sound' : 'Turn sound on'}><Icon name={sound ? 'on' : 'off'} /></button>
-          {canTiltPhone && <button className="btn icon" aria-pressed={phoneTilt} onClick={onPhoneTilt} aria-label={phoneTilt ? 'Turn gyro tilt off' : 'Turn gyro tilt on'}><Icon name="phone" /></button>}
-          <button className="btn icon" onClick={onHelp} aria-label="What are the obstacles on this level?"><Icon name="help" /></button>
+          <button className="btn icon" onClick={onFlat} aria-label="Level the board"><Icon name="level" /></button>
+          <button className="btn icon ab" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-label={`Abilities, ${total} available`}>
+            <Icon name="bolt" />{total > 0 && <b>{total}</b>}
+          </button>
         </div>
+        {menu && (
+          <div className="ab-menu" role="menu">
+            {(Object.keys(ABILITIES) as AbilityKey[]).map((k) => {
+              const gone = usedAbilities.includes(k) || stock[k] <= 0;
+              return (
+                <button key={k} role="menuitem" className="ab-item" disabled={gone} onClick={() => { onAbility(k); setMenu(false); }}>
+                  <Icon name={k} /><span><strong>{ABILITIES[k].name}</strong><small>{usedAbilities.includes(k) ? 'Used this try' : ABILITIES[k].text}</small></span><b>×{stock[k]}</b>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </footer>
       <ComboPop />
       {phoneTilt && <TiltDial readTilt={readTilt} />}

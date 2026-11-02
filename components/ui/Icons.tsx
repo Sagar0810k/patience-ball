@@ -13,6 +13,11 @@ const P: Record<string, string> = {
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z',
   tilt: 'M4 16l8-8 8 8M4 20l8-8 8 8',
   install: 'M12 4v11M7 11l5 5 5-5M5 20h14',
+  bolt: 'M13 2L5 14h6l-1 8 8-12h-6z',
+  extra: 'M12 5v6M9 8h6M6 18a2 2 0 1 0 0 .01M12 18a2 2 0 1 0 0 .01M18 18a2 2 0 1 0 0 .01',
+  home: 'M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM12 9v6M9.5 12.5L12 15l2.5-2.5',
+  freeze: 'M12 3v18M5 7l14 10M19 7L5 17',
+  slow: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2',
 };
 export type IconName = keyof typeof P;
 export default function Icon({ name, size = 22 }: { name: IconName; size?: number }) {

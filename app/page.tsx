@@ -12,6 +12,7 @@ import MainMenu from '@/components/ui/MainMenu';
 import GameHUD from '@/components/ui/GameHUD';
 import LevelSelect from '@/components/ui/LevelSelect';
 import { bumpMission } from '@/lib/missions';
+import { ABILITIES, bumpTask, readAbilities, spendAbility, type AbilityKey, type TaskKind } from '@/lib/abilities';
 import { completeDaily, completeWeekly, currentStreak, dailyLevel, doneToday, weeklyDone, weeklyLevel } from '@/lib/daily';
 import TipCard from '@/components/ui/TipCard';
 import { markTipsSeen, newTips, tipsOf, type Tip } from '@/lib/tips';
@@ -52,12 +53,20 @@ export default function Page() {
   const [bestInfo, setBestInfo] = useState<{ prev: number | null; secs: number } | null>(null);
   const [dayStreak, setDayStreak] = useState(0);
   const [attempt, setAttempt] = useState(0);
+  const [abTick, setAbTick] = useState(0);
+  const [usedAb, setUsedAb] = useState<{ key: string; used: AbilityKey[] }>({ key: '', used: [] });
+  const practiceRef = useRef(false);
   const [paused, setPaused] = useState(false);
   const [tutorial, setTutorial] = useState(false);
   const [splash, setSplash] = useState(true);
   useEffect(() => {
-    const cup = () => bumpMission('balls');
-    const combo = (e: Event) => { if ((e as CustomEvent<number>).detail >= 3) bumpMission('combo'); };
+    const earn = (kind: TaskKind) => {
+      if (practiceRef.current) return;
+      const won = bumpTask(kind);
+      if (won.length) { setNotice(`Weekly task done: ${ABILITIES[won[0]].name} +1`); setAbTick((t) => t + 1); }
+    };
+    const cup = () => { bumpMission('balls'); earn('balls'); };
+    const combo = (e: Event) => { if ((e as CustomEvent<number>).detail >= 3) { bumpMission('combo'); earn('combo'); } };
     window.addEventListener('pb-cup', cup);
     window.addEventListener('pb-combo', combo);
     return () => { window.removeEventListener('pb-cup', cup); window.removeEventListener('pb-combo', combo); };
@@ -163,7 +172,13 @@ export default function Page() {
     if (s.status === 'playing' || finished.current) return;
     finished.current = true;
     if (s.status === 'failed') setFails((f) => f + 1);
-    if (s.status === 'won') bumpMission('wins');
+    if (s.status === 'won') {
+      bumpMission('wins');
+      if (!practice) {
+        const won = [...bumpTask('wins'), ...(starsFor(s.lost, s.allowedLoss) === 3 ? bumpTask('stars3') : [])];
+        if (won.length) { setNotice(`Weekly task done: ${won.map((k) => ABILITIES[k].name).join(', ')} +1`); setAbTick((t) => t + 1); }
+      }
+    }
     const cur = saveRef.current;
     const stats = { ...cur.stats, ballsPlayed: cur.stats.ballsPlayed + s.total, ballsCollected: cur.stats.ballsCollected + s.collected };
     const mile = [100, 250, 500, 1000, 2500, 5000].find((m) => cur.stats.ballsCollected < m && stats.ballsCollected >= m);
@@ -307,7 +322,15 @@ export default function Page() {
   const dailyInfo = useMemo(() => (loaded ? { done: doneToday(), streak: currentStreak(), weeklyDone: weeklyDone() } : { done: false, streak: 0, weeklyDone: false }), [loaded, screen, dayStreak]);
 
   // Spare balls after repeated fails: quietly more forgiving, never fewer than one ball needed per size.
+  // The spare balls are decided when a run starts (not when the stock changes), so using the ability never restarts the level.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const hasExtra = useMemo(() => screen === 'game' && readAbilities().stock.extra > 0, [level, attempt, screen]);
   const playLevel = useMemo(() => {
+    if (level && hasExtra && !practice) {
+      const extra = Array.from({ length: 3 }, () => ({ radius: level.classRadii[0], cls: 0 }));
+      const base = assist === 0 ? level : (() => { const allowed = level.classAllowed.map((a, j) => (level.classNeed[j] - assist >= 1 ? a + assist : a)); const need = level.classNeed.map((n, j) => n - (allowed[j] - level.classAllowed[j])); return { ...level, classAllowed: allowed, classNeed: need, required: need.reduce((a, b) => a + b, 0), allowedLoss: allowed.reduce((a, b) => a + b, 0) }; })();
+      return { ...base, balls: [...level.balls, ...extra], reserve: 3 };
+    }
     if (level && practice) {
       const allowed = level.classAllowed.map((a, j) => a + level.classNeed[j] - 1);
       return { ...level, classAllowed: allowed, classNeed: level.classNeed.map(() => 1), required: level.classNeed.length, allowedLoss: allowed.reduce((a, b) => a + b, 0) };
@@ -316,7 +339,18 @@ export default function Page() {
     const allowed = level.classAllowed.map((a, j) => (level.classNeed[j] - assist >= 1 ? a + assist : a));
     const need = level.classNeed.map((n, j) => n - (allowed[j] - level.classAllowed[j]));
     return { ...level, classAllowed: allowed, classNeed: need, required: need.reduce((a, b) => a + b, 0), allowedLoss: allowed.reduce((a, b) => a + b, 0) };
-  }, [level, assist, practice]);
+  }, [level, assist, practice, hasExtra]);
+  useEffect(() => { practiceRef.current = practice; }, [practice]);
+  const runKey = `${level?.seed}-${level?.levelNumber}-${attempt}`;
+  const used = usedAb.key === runKey ? usedAb.used : [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stock = useMemo(() => (loaded ? readAbilities().stock : { extra: 0, home: 0, freeze: 0, slow: 0 }), [loaded, screen, abTick, usedAb]);
+  const useAbility = (k: AbilityKey) => {
+    if (used.includes(k) || readAbilities().stock[k] <= 0) return;
+    if (!controller.current?.useAbility(k)) { setNotice(k === 'extra' ? 'Spare balls are only available if you own the ability when the level starts.' : 'That cannot be used right now.'); return; }
+    spendAbility(k);
+    setUsedAb({ key: runKey, used: [...used, k] });
+  };
 
   // Background music plays during a level when it is switched on in Settings (and sound is on).
   useEffect(() => {
@@ -411,9 +445,12 @@ export default function Page() {
             onCamera={() => { controller.current?.resetCamera(); calibrate.current(); }}
             onOrbit={(a, e) => controller.current?.orbit(a, e)}
             onFlat={() => controller.current?.setPointer(0, 0)}
+            stock={stock}
+            usedAbilities={used}
+            onAbility={useAbility}
             onPhoneTilt={togglePhoneTilt}
           />
-          {paused && snap?.status === 'playing' && <PauseOverlay practice={practice} onPractice={() => { setPractice((p) => !p); setPaused(false); restart(); }} onResume={() => setPaused(false)} onRestart={restart} onMenu={toMenu} />}
+          {paused && snap?.status === 'playing' && <PauseOverlay sound={save.settings.sound} onSound={() => setSettings({ ...save.settings, sound: !save.settings.sound })} canGyro={canTiltPhone} gyro={phoneTilt} onGyro={togglePhoneTilt} onHelp={() => { setPaused(false); const t = level ? tipsOf(level) : []; if (t.length) setTips(t); }} practice={practice} onPractice={() => { setPractice((p) => !p); setPaused(false); restart(); }} onResume={() => setPaused(false)} onRestart={restart} onMenu={toMenu} />}
           {snap?.status === 'failed' && <FailedOverlay onSkip={!random && fails >= 3 ? skipLevel : undefined} collected={snap.collected} required={snap.required} lost={snap.lost} lostTrap={snap.lostTrap} lostVoid={snap.lostVoid} onRetry={restart} onMenu={toMenu} />}
           {snap?.status === 'won' && <CompletedOverlay levelNumber={level?.levelNumber} challenge={level ? { level: level.levelNumber, seed: level.seed } : undefined} best={random ? undefined : bestInfo ?? undefined} nextLabel={daily || weekly ? 'Back to menu' : undefined} streak={daily ? dayStreak : undefined} seconds={snap.elapsed} lost={snap.lost} allowedLoss={snap.allowedLoss} total={snap.total} random={random} onNext={nextLevel} onRetry={restart} onMenu={toMenu} />}
         </div>

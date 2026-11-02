@@ -46,10 +46,10 @@ export function tipsOf(level: Level): Tip[] {
   return [...keys].filter((k) => TIPS[k]).map((key) => ({ key, ...TIPS[key] }));
 }
 
-/** Element types in this level that the player has not met yet (at most 3; the rest wait for the next level). */
+/** Element types in this level that the player has not met yet (one at a time; the rest wait for the next level). */
 export function newTips(level: Level): Tip[] {
   const seen = new Set(read());
-  return tipsOf(level).filter((t) => !seen.has(t.key)).slice(0, 3);
+  return tipsOf(level).filter((t) => !seen.has(t.key)).slice(0, 1);
 }
 
 const ALIAS: Record<string, string> = { barrier: 'bar', doorwall: 'door' };

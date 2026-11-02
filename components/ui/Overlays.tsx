@@ -1,6 +1,7 @@
 'use client';
 import { nextUnlock } from '@/lib/tips';
 import { Mascot } from './Pictogram';
+import Icon from './Icons';
 import { useState, type ReactNode } from 'react';
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
@@ -14,13 +15,18 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function PauseOverlay({ practice, onPractice, onResume, onRestart, onMenu }: { practice?: boolean; onPractice?: () => void; onResume: () => void; onRestart: () => void; onMenu: () => void }) {
+export function PauseOverlay({ practice, onPractice, onResume, onRestart, onMenu, sound, onSound, canGyro, gyro, onGyro, onHelp }: { sound: boolean; onSound: () => void; canGyro: boolean; gyro: boolean; onGyro: () => void; onHelp: () => void; practice?: boolean; onPractice?: () => void; onResume: () => void; onRestart: () => void; onMenu: () => void }) {
   return (
     <Card title="Paused">
       <button className="btn primary big" autoFocus onClick={onResume}>Resume</button>
       <div className="btn-row">
         <button className="btn" onClick={onRestart}>Restart</button>
         {onPractice && <button className="btn" onClick={onPractice}>{practice ? 'Leave practice' : 'Practice'}</button>}
+      </div>
+      <div className="pause-tools" role="group" aria-label="Quick settings">
+        <button className="btn tool" aria-pressed={sound} onClick={onSound}><Icon name={sound ? 'on' : 'off'} /><span>Sound</span></button>
+        {canGyro && <button className="btn tool" aria-pressed={gyro} onClick={onGyro}><Icon name="phone" /><span>Gyro</span></button>}
+        <button className="btn tool" onClick={onHelp}><Icon name="help" /><span>Help</span></button>
       </div>
       <button className="btn" onClick={onMenu}>Main menu</button>
     </Card>

@@ -1,5 +1,6 @@
 'use client';
 import { readMissions } from '@/lib/missions';
+import { ABILITIES, TASKS, readAbilities, type AbilityKey } from '@/lib/abilities';
 import Icon from './Icons';
 import MenuBoard from './MenuBoard';
 
@@ -44,6 +45,19 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
           <button onClick={onRandom} disabled={!ready}>Random</button>
           <button onClick={onTutorial} disabled={!ready}>Tutorial</button>
         </nav>
+        <section className="weekly" aria-label="Weekly tasks" suppressHydrationWarning>
+          <h2>Weekly tasks: earn abilities</h2>
+          <ul>
+            {(() => { const a = readAbilities(); return TASKS.map((t, i) => (
+              <li key={t.kind} className={a.prog[i] >= t.goal ? 'done' : ''}>
+                <i style={{ width: `${(a.prog[i] / t.goal) * 100}%` }} />
+                <span>{a.prog[i] >= t.goal ? '✓ ' : ''}{t.label}</span><b>{a.prog[i]}/{t.goal}</b>
+                <small>Reward: {ABILITIES[t.reward].name}</small>
+              </li>
+            )); })()}
+          </ul>
+          <p className="have">{(Object.keys(ABILITIES) as AbilityKey[]).map((k) => `${ABILITIES[k].name} ×${readAbilities().stock[k]}`).join('  ·  ')}</p>
+        </section>
         <section className="missions" aria-label="Daily missions" suppressHydrationWarning>
           <h2>Today&apos;s missions</h2>
           <ul>
