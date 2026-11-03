@@ -1,6 +1,7 @@
 'use client';
 import Icon from './Icons';
 import type { SaveData } from '@/lib/types';
+import { THEMES } from '@/lib/themes';
 import { WORLD_SIZE, worldName, worldOf } from '@/lib/worlds';
 
 interface Props {
@@ -25,7 +26,7 @@ export default function LevelSelect({ save, onPick, onBack }: Props) {
         const levels = Array.from({ length: WORLD_SIZE }, (_, i) => first + i);
         const got = levels.reduce((a, n) => a + (save.stars[n] ?? 0), 0);
         return (
-          <section key={w} className="world">
+          <section key={w} className="world" style={{ ['--w' as string]: THEMES[w % THEMES.length].top }}>
             <h3>World {w} · {worldName(w)} <small>★ {got}/{WORLD_SIZE * 3}</small></h3>
             <div className="level-grid">
               {levels.map((n) => {

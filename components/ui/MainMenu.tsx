@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { readMissions } from '@/lib/missions';
 import { ABILITIES, TASKS, readAbilities, type AbilityKey } from '@/lib/abilities';
 import Icon from './Icons';
@@ -20,11 +21,14 @@ interface Props {
 }
 
 export default function MainMenu({ level, completed, onPlay, onRandom, onLevels, onSettings, onTutorial, onDaily, daily, onWeekly, onInstall, ready }: Props) {
+  // Weekly/missions read localStorage, so they render only after hydration.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 0); return () => clearTimeout(t); }, []);
   return (
-    <main className="menu">
+    <main className="menu" id="main">
       <h1 aria-label="Control Your Balls"><span>Control</span><em>Your</em><span>Balls</span></h1>
       <MenuBoard onWin={onPlay} ready={ready} />
-      <p className="tagline">Drag the board to tilt it. Roll the ball into the green hole.</p>
+      <p className="tagline" aria-label="Drag the board to tilt it. Roll the ball into the green hole.">{'Drag the board to tilt it. Roll the ball into the green hole.'.split(' ').map((w, i) => <span key={i} aria-hidden style={{ ['--i' as string]: i }}>{w} </span>)}</p>
       <div className="menu-actions">
         <button className="btn primary big" onClick={onPlay} disabled={!ready}>
           {completed > 0 ? `▶  Continue · Level ${level}` : '▶  Play'}
@@ -45,7 +49,7 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
           <button onClick={onRandom} disabled={!ready}>Random</button>
           <button onClick={onTutorial} disabled={!ready}>Tutorial</button>
         </nav>
-        <section className="weekly" aria-label="Weekly tasks" suppressHydrationWarning>
+        {mounted && <section className="weekly" aria-label="Weekly tasks">
           <h2>Weekly tasks: earn abilities</h2>
           <ul>
             {(() => { const a = readAbilities(); return TASKS.map((t, i) => (
@@ -57,8 +61,8 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
             )); })()}
           </ul>
           <p className="have">{(Object.keys(ABILITIES) as AbilityKey[]).map((k) => `${ABILITIES[k].name} ×${readAbilities().stock[k]}`).join('  ·  ')}</p>
-        </section>
-        <section className="missions" aria-label="Daily missions" suppressHydrationWarning>
+        </section>}
+        {mounted && <section className="missions" aria-label="Daily missions">
           <h2>Today&apos;s missions</h2>
           <ul>
             {readMissions().map((m) => (
@@ -68,7 +72,7 @@ export default function MainMenu({ level, completed, onPlay, onRandom, onLevels,
               </li>
             ))}
           </ul>
-        </section>
+        </section>}
       <details className="guide">
         <summary>How to play &amp; obstacle guide</summary>
         <ol>

@@ -1,5 +1,5 @@
 // App-shell service worker. Bump VERSION to drop old caches on release.
-const VERSION = 'pb-v2';
+const VERSION = 'pb-v3';
 const SHELL = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -15,7 +15,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== location.origin) return;
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
 
   // Pages: network first so updates arrive, cached copy when offline.
   if (req.mode === 'navigate') {

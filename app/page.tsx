@@ -37,6 +37,7 @@ export default function Page() {
   const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState('');
   const [screen, setScreen] = useState<Screen>('menu');
+  const [stale, setStale] = useState(false); // a newer version is live
   const [level, setLevel] = useState<Level | null>(null);
   const [random, setRandom] = useState(false);
   const [daily, setDaily] = useState(false);
@@ -96,7 +97,26 @@ export default function Page() {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
+    // Ask the server which build is live; when it differs from this one, flag the app for a reload.
+    const check = () => {
+      if (!navigator.onLine) return;
+      fetch('/api/version', { cache: 'no-store' }).then((r) => r.json()).then((d) => { if (d.v && d.v !== process.env.NEXT_PUBLIC_BUILD_ID) setStale(true); }).catch(() => {});
+    };
+    const onVis = () => { if (document.visibilityState === 'visible') check(); };
+    check();
+    const timer = setInterval(check, 5 * 60 * 1000);
+    window.addEventListener('online', check);
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(timer); window.removeEventListener('online', check); document.removeEventListener('visibilitychange', onVis); };
   }, []);
+
+  // Reload for the update only between levels, never in the middle of a run.
+  useEffect(() => {
+    if (!stale || screen === 'game') return;
+    // Guard against a reload loop (e.g. servers briefly on different builds): at most one automatic reload per minute.
+    try { const last = Number(sessionStorage.getItem('pb_reload') || 0); if (Date.now() - last < 60000) return; sessionStorage.setItem('pb_reload', String(Date.now())); } catch {}
+    navigator.serviceWorker?.getRegistration().then((r) => r?.update()).catch(() => {}).finally(() => window.location.reload());
+  }, [stale, screen]);
 
   // The 3D engine and physics are ~2.6 MB: fetch and compile them in the background while the menu is showing.
   useEffect(() => {
@@ -158,7 +178,7 @@ export default function Page() {
     commit({ ...s, stats: { ...s.stats, attempts: s.stats.attempts + 1 } });
   }, [level, commit, random, fails]);
 
-  // After three fails the player may move on: the next level unlocks, but this one stays uncompleted (no stars).
+  // After 20 fails on the same level the player may move on: the next level unlocks, but this one stays uncompleted (no stars).
   const skipLevel = useCallback(() => {
     if (!level) return;
     const s = saveRef.current, n = level.levelNumber;
@@ -451,7 +471,7 @@ export default function Page() {
             onPhoneTilt={togglePhoneTilt}
           />
           {paused && snap?.status === 'playing' && <PauseOverlay sound={save.settings.sound} onSound={() => setSettings({ ...save.settings, sound: !save.settings.sound })} canGyro={canTiltPhone} gyro={phoneTilt} onGyro={togglePhoneTilt} onHelp={() => { setPaused(false); const t = level ? tipsOf(level) : []; if (t.length) setTips(t); }} practice={practice} onPractice={() => { setPractice((p) => !p); setPaused(false); restart(); }} onResume={() => setPaused(false)} onRestart={restart} onMenu={toMenu} />}
-          {snap?.status === 'failed' && <FailedOverlay onSkip={!random && fails >= 3 ? skipLevel : undefined} collected={snap.collected} required={snap.required} lost={snap.lost} lostTrap={snap.lostTrap} lostVoid={snap.lostVoid} onRetry={restart} onMenu={toMenu} />}
+          {snap?.status === 'failed' && <FailedOverlay onSkip={!random && fails >= 20 ? skipLevel : undefined} collected={snap.collected} required={snap.required} lost={snap.lost} lostTrap={snap.lostTrap} lostVoid={snap.lostVoid} onRetry={restart} onMenu={toMenu} />}
           {snap?.status === 'won' && <CompletedOverlay levelNumber={level?.levelNumber} challenge={level ? { level: level.levelNumber, seed: level.seed } : undefined} best={random ? undefined : bestInfo ?? undefined} nextLabel={daily || weekly ? 'Back to menu' : undefined} streak={daily ? dayStreak : undefined} seconds={snap.elapsed} lost={snap.lost} allowedLoss={snap.allowedLoss} total={snap.total} random={random} onNext={nextLevel} onRetry={restart} onMenu={toMenu} />}
         </div>
       )}

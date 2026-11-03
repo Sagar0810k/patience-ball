@@ -38,7 +38,7 @@ export function FailedOverlay({ onSkip, collected, required, lost, lostTrap, los
     ? `${lostTrap} ball${lostTrap === 1 ? '' : 's'} fell into red holes. Red holes swallow any ball small enough to fit, so steer the pile around them.`
     : `${lostVoid} ball${lostVoid === 1 ? '' : 's'} rolled off an open edge. Tilt gently near edges with a red glow.`;
   return (
-    <Card title={required - collected <= 2 && required > collected ? `So close! ${required - collected} more needed` : 'Too many balls lost'}>
+    <Card title={required - collected <= 2 && required > collected ? `So close, ${required - collected} more needed` : 'Too many balls lost'}>
       <Mascot mood={required - collected <= 2 ? 'sad' : 'dizzy'} />
       <div className="facts">
         <div><b>{collected}/{required}</b><small>home</small></div>
@@ -59,9 +59,9 @@ export const starsFor = (lost: number, allowedLoss: number) => (lost === 0 ? 3 :
 
 async function shareResult(text: string, url: string) {
   try {
-    if (navigator.share) { await navigator.share({ title: 'Control Your Balls', text, url }); return 'Shared!'; }
+    if (navigator.share) { await navigator.share({ title: 'Control Your Balls', text, url }); return 'Shared'; }
     await navigator.clipboard.writeText(`${text} ${url}`);
-    return 'Link copied!';
+    return 'Link copied';
   } catch { return ''; }
 }
 

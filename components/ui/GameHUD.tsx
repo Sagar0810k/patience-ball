@@ -74,7 +74,7 @@ function TiltDial({ readTilt }: { readTilt: () => [number, number] }) {
   return <div className="dial" aria-hidden title="Board tilt"><i ref={dot} /></div>;
 }
 
-const COMBO = ['', '', 'Double!', 'Triple!', 'Quad!', 'Awesome!', 'Amazing!', 'Unstoppable!'];
+const COMBO = ['', '', 'Double', 'Triple', 'Quad', 'Five at once', 'Six at once', 'Seven at once'];
 
 /** Floating combo text when balls drop in quick succession (fired by the scene as a window event). */
 function ComboPop() {

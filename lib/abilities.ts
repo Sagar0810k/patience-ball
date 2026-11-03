@@ -5,7 +5,7 @@ export type AbilityKey = 'extra' | 'home' | 'freeze' | 'slow';
 export type TaskKind = 'balls' | 'wins' | 'stars3' | 'combo';
 
 export const ABILITIES: Record<AbilityKey, { name: string; text: string }> = {
-  extra: { name: 'Extra balls', text: 'Three spare balls drop in from the start.' },
+  extra: { name: 'Extra balls', text: 'Drops three extra balls onto the board.' },
   home: { name: 'Home run', text: 'One ball you still need goes straight into its hole.' },
   freeze: { name: 'Freeze', text: 'Moving obstacles and doors stop for 8 seconds.' },
   slow: { name: 'Slow time', text: 'Everything moves at half speed for 8 seconds.' },
